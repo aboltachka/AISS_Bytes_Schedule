@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seminar Slot Sign-up</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+/* ======================================================================
+   SETTINGS — the only part you need to edit.
+   API_URL: the Google Apps Script "Web app URL" (it ends in /exec).
+   ====================================================================== */
+var CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbws_VFKxfLuSIo7uXiM2qMsd3rq0t1LVuozZInsEY0xY2SPJpMz6cau3vrKKkAGcG5n8A/exec",
+  TITLE: "Seminar presentation slots",
+  INTRO: "Type your name, then pick one free slot. Your choice shows up for everyone.",
+  CONTACT: ""   // optional, e.g. "Questions: name@example.org"
+};
+</script>
+<style>
+/* Layout: one narrow column, like a sign-up sheet pinned to a department door.
+   Each row is a date stub, the session details, and one action. */
+:root {
+  --bg: #F1F3F6;
+  --surface: #FFFFFF;
+  --ink: #151A2D;
+  --muted: #5B6379;
+  --line: #D9DDE6;
+  --accent: #3142C4;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E6E9FB;
+  --warn: #A5451B;
+  --warn-soft: #FBEDE5;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #10131F; --surface: #181C2B; --ink: #E8EAF2; --muted: #9AA1B8;
+    --line: #2A3045; --accent: #8E9BFF; --accent-ink: #0E1230; --accent-soft: #222A55;
+    --warn: #F0936A; --warn-soft: #3A2218; color-scheme: dark;
+  }
+}
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 44rem; margin-inline: auto; padding-inline: 16px; padding-block: 2.5rem 4rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.1; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.head { display: flex; flex-direction: column; gap: 0.6rem; }
+.intro { margin: 0; color: var(--muted); max-width: 60ch; }
+.count { margin: 0; font-family: var(--mono); font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.count strong { color: var(--ink); font-weight: 500; }
+
+button, input { font: inherit; color: inherit; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 0.5rem 0.9rem; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.btn:hover { filter: brightness(1.08); }
+.btn[disabled] { opacity: 0.55; cursor: default; filter: none; }
+.btn.quiet { background: transparent; color: var(--accent); }
+.link { border: 0; background: none; padding: 0.15rem 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 0.875rem; }
+.link:hover { color: var(--ink); }
+.link.danger { color: var(--warn); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.field span { font-size: 0.8125rem; color: var(--muted); }
+.field input { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem 0.6rem; min-width: 0; width: 100%; box-sizing: border-box; }
+.who { max-width: 22rem; }
+
+.mine { background: var(--accent-soft); border-radius: 6px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.mine p { margin: 0; }
+.mine strong { font-weight: 600; }
+.topic-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
+.topic-form .field { flex: 1 1 14rem; }
+
+#flash { font-size: 0.9375rem; color: var(--muted); }
+#flash:empty { margin-top: -1.5rem; }
+#flash.err { color: var(--warn); }
+
+.sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.empty { margin: 0; padding: 2rem 1.25rem; color: var(--muted); }
+.empty strong { display: block; color: var(--ink); font-family: var(--display); font-size: 1.125rem; font-weight: 500; margin-bottom: 0.25rem; }
+.list { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: 4rem minmax(0, 1fr) auto; gap: 0.25rem 1.1rem; align-items: center; padding: 0.95rem 1.1rem; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row.is-mine { background: var(--accent-soft); }
+.row.is-past { color: var(--muted); }
+
+.stub { display: flex; flex-direction: column; align-items: center; line-height: 1; gap: 0.2rem; }
+.stub .wd, .stub .mo { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+.stub .dn { font-family: var(--display); font-weight: 700; font-size: 1.875rem; font-variant-numeric: tabular-nums; }
+
+.body { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.when { margin: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 0.7rem; align-items: baseline; }
+.time { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.holder { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+.holder .name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.topic { margin: 0; color: var(--muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.chip { display: inline-block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
+.chip.off { border-color: var(--line); color: var(--muted); }
+.chip.solid { background: var(--accent); color: var(--accent-ink); }
+.act { display: flex; flex-direction: column; align-items: flex-end; }
+.foot { margin: 0; color: var(--muted); font-size: 0.875rem; }
+
+@media (max-width: 520px) {
+  .row { grid-template-columns: 3.25rem minmax(0, 1fr); }
+  .act { grid-column: 2; align-items: flex-start; padding-top: 0.35rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: filter 120ms ease; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <h1 id="title">Seminar presentation slots</h1>
+    <p id="intro" class="intro"></p>
+    <p id="count" class="count" hidden></p>
+  </header>
+
+  <label class="field who" id="who">
+    <span>Your name</span>
+    <input id="name" type="text" maxlength="80" autocomplete="name" placeholder="First and last name">
+  </label>
+
+  <section id="mine" class="mine" aria-label="Your slot" hidden>
+    <p id="mineLine"></p>
+    <form id="topicForm" class="topic-form">
+      <label class="field"><span>Paper or topic (optional)</span>
+        <input id="topic" type="text" maxlength="140" autocomplete="off" placeholder="What you plan to present">
+      </label>
+      <button id="topicSave" class="btn quiet" type="submit">Save topic</button>
+    </form>
+    <div><button id="release" class="link" type="button">Give up this slot</button></div>
+  </section>
+
+  <div id="flash" role="status" aria-live="polite"></div>
+
+  <section class="sheet" aria-label="Slots">
+    <p id="empty" class="empty"><strong>Loading slots</strong>The dates and who has taken them will appear here.</p>
+    <ol id="list" class="list"></ol>
+  </section>
+
+  <p id="foot" class="foot" hidden></p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var S = { slots: [], loaded: false, failed: false, busy: false, pending: null, armed: false, armTimer: 0, topicDirty: false };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function h(tag, attrs) {
+    var el = document.createElement(tag), i, k;
+    if (attrs) for (k in attrs) {
+      if (k === "class") el.className = attrs[k];
+      else if (k === "text") el.textContent = attrs[k];
+      else if (k === "onclick") el.addEventListener("click", attrs[k]);
+      else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
+    }
+    for (i = 2; i < arguments.length; i++) if (arguments[i]) el.appendChild(arguments[i]);
+    return el;
+  }
+
+  /* ---- this browser's memory: your name, and a private key that lets
+          only this browser change or give up the slot it took ---- */
+  function remember(k, v) { try { localStorage.setItem("seminar-signup-" + k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem("seminar-signup-" + k) || ""; } catch (e) { return ""; } }
+  function newKey() {
+    var a = new Uint8Array(16), s = "", i;
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for (i = 0; i < a.length; i++) s += (a[i] < 16 ? "0" : "") + a[i].toString(16);
+    return s;
+  }
+  var KEY = recall("key");
+  if (!/^[a-f0-9]{32}$/.test(KEY)) { KEY = newKey(); remember("key", KEY); }
+
+  /* ---- dates (kept as calendar days, never shifted by time zone) ---- */
+  function parseDay(iso) { var p = String(iso || "").split("-"); return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1); }
+  function isoDay(d) { function z(n) { return (n < 10 ? "0" : "") + n; } return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+  var fWd = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+  var fMo = new Intl.DateTimeFormat("en-GB", { month: "short" });
+  var fLong = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  function whenText(s) { return fLong.format(parseDay(s.date)) + (s.time ? ", " + s.time : ""); }
+
+  function flash(msg, isErr) { var f = $("flash"); f.textContent = msg || ""; f.className = isErr ? "err" : ""; }
+  var ERRORS = {
+    taken: "That slot was just taken. Pick another one.",
+    past: "That date has already passed. Pick a later one.",
+    name_required: "Type your name first.",
+    no_slot: "You don't have a slot yet. Pick one first.",
+    busy: "The sheet is busy. Try again in a few seconds.",
+    not_set_up: "The sign-up sheet isn't set up yet. Tell the organizer."
+  };
+
+  /* ---- talking to the Google Sheet ---- */
+  function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
+  function load() {
+    return fetch(CONFIG.API_URL + "?key=" + KEY + "&t=" + Date.now(), { redirect: "follow" })
+      .then(readJson).then(function (d) { S.slots = d.slots || []; S.loaded = true; S.failed = false; });
+  }
+  function send(body) {
+    body.key = KEY;
+    // Sent as plain text on purpose: Google Apps Script only accepts this kind of request from another site.
+    return fetch(CONFIG.API_URL, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(readJson).then(function (d) { if (d.slots) { S.slots = d.slots; S.loaded = true; } return d; });
+  }
+  function act(pendingRow, okMsg, body, after) {
+    if (S.busy) return;
+    S.busy = true; S.pending = pendingRow; flash(""); draw();
+    send(body).then(function (d) {
+      if (d.ok) { if (after) after(); flash(okMsg); }
+      else flash(ERRORS[d.error] || "Couldn't save. Try again.", true);
+    }).catch(function () {
+      flash("Couldn't reach the sign-up sheet. Check your connection and try again.", true);
+    }).then(function () { S.busy = false; S.pending = null; draw(); });
+  }
+
+  /* ---- drawing ---- */
+  function sorted() {
+    return S.slots.slice().sort(function (a, b) {
+      var x = a.date + (a.time || ""), y = b.date + (b.time || "");
+      return x < y ? -1 : x > y ? 1 : a.row - b.row;
+    });
+  }
+  function draw() {
+    var slots = sorted(), today = isoDay(new Date());
+    var mine = slots.filter(function (s) { return s.mine; })[0] || null;
+
+    var empty = $("empty");
+    empty.hidden = S.loaded && slots.length > 0;
+    if (!CONFIG.API_URL) {
+      empty.replaceChildren(h("strong", { text: "This sheet isn't connected yet" }),
+        document.createTextNode("The organizer still needs to paste the Google Sheet link into this page."));
+    } else if (S.failed && !S.loaded) {
+      empty.replaceChildren(h("strong", { text: "Couldn't load the slots" }),
+        document.createTextNode("Check your connection and reload the page."));
+    } else if (S.loaded && !slots.length) {
+      empty.replaceChildren(h("strong", { text: "No slots yet" }),
+        document.createTextNode("The organizer hasn't added the seminar dates yet. Check back soon."));
+    }
+
+    var upcoming = slots.filter(function (s) { return s.date >= today; });
+    var free = upcoming.filter(function (s) { return !s.name; });
+    var count = $("count");
+    count.hidden = !(S.loaded && slots.length);
+    if (!count.hidden) count.replaceChildren(h("strong", { text: String(free.length) }),
+      document.createTextNode(" of " + upcoming.length + " upcoming slot" + (upcoming.length === 1 ? "" : "s") + " free"));
+
+    var list = $("list");
+    list.replaceChildren.apply(list, S.loaded ? slots.map(function (s) { return row(s, mine, today); }) : []);
+
+    $("mine").hidden = !mine;
+    if (mine) {
+      $("mineLine").replaceChildren(document.createTextNode("You're presenting on "), h("strong", { text: whenText(mine) }), document.createTextNode("."));
+      var input = $("topic");
+      if (!S.topicDirty && document.activeElement !== input) input.value = mine.topic || "";
+    }
+    $("release").textContent = S.armed ? "Confirm: give up this slot" : "Give up this slot";
+    $("release").className = "link" + (S.armed ? " danger" : "");
+    $("topicSave").disabled = S.busy;
+  }
+
+  function row(slot, mine, today) {
+    var past = slot.date < today, d = parseDay(slot.date);
+    var stub = h("div", { class: "stub" },
+      h("span", { class: "wd", text: fWd.format(d) }),
+      h("span", { class: "dn", text: String(d.getDate()) }),
+      h("span", { class: "mo", text: fMo.format(d) }));
+    var when = h("p", { class: "when" },
+      h("span", { class: "time", text: slot.time || "Time to be confirmed" }),
+      slot.note ? h("span", { class: "note", text: slot.note }) : null);
+    var holder = slot.name
+      ? h("p", { class: "holder" }, h("span", { class: "name", text: slot.name }), slot.mine ? h("span", { class: "chip solid", text: "Your slot" }) : null)
+      : h("p", { class: "holder" }, h("span", { class: "chip" + (past ? " off" : ""), text: past ? "No presenter" : "Free" }));
+    var body = h("div", { class: "body" }, when, holder, slot.name && slot.topic ? h("p", { class: "topic", text: slot.topic }) : null);
+
+    var actBox = h("div", { class: "act" });
+    if (!slot.name && !past) {
+      actBox.appendChild(h("button", {
+        class: "btn" + (mine ? " quiet" : ""), type: "button", disabled: S.busy,
+        text: S.pending === slot.row ? "Saving…" : (mine ? "Switch to this slot" : "Take this slot"),
+        onclick: function () { claim(slot, mine); }
+      }));
+    }
+    return h("li", { class: "row" + (slot.mine ? " is-mine" : "") + (past ? " is-past" : "") }, stub, body, actBox);
+  }
+
+  /* ---- actions ---- */
+  function claim(slot, mine) {
+    var name = $("name").value.trim();
+    if (!name) { flash(ERRORS.name_required, true); $("name").focus(); return; }
+    remember("name", name);
+    act(slot.row, mine ? "Moved to the new slot." : "Slot saved.",
+      { action: "claim", row: slot.row, date: slot.date, time: slot.time || "", name: name, topic: mine ? (mine.topic || "") : "" });
+  }
+  $("release").addEventListener("click", function () {
+    clearTimeout(S.armTimer);
+    if (!S.armed) { S.armed = true; S.armTimer = setTimeout(function () { S.armed = false; draw(); }, 5000); draw(); return; }
+    S.armed = false;
+    act(null, "You gave up your slot.", { action: "release" }, function () { S.topicDirty = false; });
+  });
+  $("topic").addEventListener("input", function () { S.topicDirty = true; });
+  $("topicForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    act(null, "Topic saved.", { action: "topic", topic: $("topic").value.trim() }, function () { S.topicDirty = false; });
+  });
+  $("name").addEventListener("change", function () { remember("name", $("name").value.trim()); });
+
+  /* ---- start ---- */
+  document.title = CONFIG.TITLE || document.title;
+  $("title").textContent = CONFIG.TITLE || "Seminar presentation slots";
+  $("intro").textContent = CONFIG.INTRO || "";
+  if (CONFIG.CONTACT) { $("foot").textContent = CONFIG.CONTACT; $("foot").hidden = false; }
+  $("name").value = recall("name");
+  draw();
+
+  function refresh() {
+    if (!CONFIG.API_URL || S.busy) return;
+    load().catch(function () { S.failed = true; }).then(draw);
+  }
+  refresh();
+  // Pick up other people's choices while the page stays open.
+  setInterval(function () { if (document.visibilityState === "visible") refresh(); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refresh(); });
+})();
+</script>
+</body>
+</html>
