@@ -46,10 +46,23 @@ p, h1, h2, h3, ol, figure { margin: 0; }
 .topline { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
 
 /* ---- hero: the seminar's name, set like the promo headline ---- */
-.mark { font-family: var(--display); font-weight: 800; font-size: clamp(4rem, 15vw, 7rem); line-height: 0.9; letter-spacing: -0.03em; }
-.mark span { display: block; }
+/* The name runs on one line and grows with the window until it spans the sheet. */
+.mark { font-family: var(--display); font-weight: 800; font-size: clamp(2.75rem, 17vw, 9.75rem); line-height: 0.9; letter-spacing: -0.03em; }
 .mark .b { color: var(--blue); }
-.tagline { margin-top: 1.4rem; font-size: 1.1875rem; line-height: 1.4; max-width: 24ch; }
+.mark .w { white-space: nowrap; }
+/* Each letter can turn into a bit (0 or 1) and back; its box keeps the letter's width meanwhile. */
+.mark .ch { display: inline-block; text-align: center; }
+.mark .ch.bit { opacity: 0.28; }
+.mark .ch.flip { color: var(--amber); }
+/* A slow ticker spelling the name in binary, one byte per letter. */
+.stream { overflow: hidden; margin-top: 1.6rem; white-space: nowrap; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.12em; color: var(--muted);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+.stream:empty { display: none; }
+.stream-run { display: inline-flex; }
+.stream-run span { flex: none; padding-right: 2.2em; }
+.stream-run b { font-weight: 500; color: var(--ink); padding-right: 0.7em; }
+.stream-run b.b { color: var(--blue); }
+.tagline { margin-top: 1.4rem; font-size: clamp(1.125rem, 2.4vw, 1.5rem); line-height: 1.35; }
 .tagline strong { font-weight: 600; }
 
 /* ---- how to sign up ---- */
@@ -57,7 +70,7 @@ p, h1, h2, h3, ol, figure { margin: 0; }
 .how { display: flex; flex-direction: column; gap: 1rem; }
 .steps { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem 2rem; }
 .steps li { display: flex; gap: 0.75rem; align-items: flex-start; }
-.steps .n { flex: none; width: 1.5rem; height: 1.5rem; display: grid; place-items: center; background: var(--blue); color: #FFFFFF; font-family: var(--mono); font-size: 0.8125rem; border-radius: 2px; margin-top: 0.05rem; }
+.n { flex: none; width: 1.5rem; height: 1.5rem; display: grid; place-items: center; background: var(--blue); color: #FFFFFF; font-family: var(--mono); font-size: 0.8125rem; border-radius: 2px; margin-top: 0.05rem; }
 
 /* ---- sign-up ---- */
 .signup { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -81,7 +94,15 @@ button, input { font: inherit; color: inherit; }
 
 .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
 .field input { background: var(--surface); border: 1px solid var(--ink); border-radius: 2px; padding: 0.55rem 0.7rem; min-width: 0; width: 100%; }
-.who { max-width: 24rem; }
+/* The name box is the first thing to fill in, so it is the loudest element until it has a name in it. */
+.who { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.3rem; display: flex; flex-direction: column; gap: 0.55rem; box-shadow: 6px 6px 0 var(--line); }
+.who.needs-name { box-shadow: 6px 6px 0 var(--blue); }
+.who-label { display: flex; align-items: center; gap: 0.65rem; font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.15; }
+.who-label .n { margin-top: 0; width: 1.75rem; height: 1.75rem; font-size: 0.9375rem; font-weight: 500; }
+.who-hint { color: var(--muted); font-size: 0.9375rem; }
+.who input { font-size: 1.125rem; padding: 0.75rem 0.85rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--bg); width: 100%; min-width: 0; }
+.who input::placeholder { color: var(--muted); opacity: 0.8; }
+.who input:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
 
 .mine-body { background: var(--blue); color: #FFFFFF; padding: 1.1rem 1.25rem 1rem; display: flex; flex-direction: column; gap: 0.8rem; }
 .mine-body .label { color: #FFFFFF; opacity: 0.85; }
@@ -127,7 +148,6 @@ button, input { font: inherit; color: inherit; }
 .foot { padding-top: 0.75rem; border-top: 1px solid var(--line); }
 
 @media (max-width: 640px) {
-  .tagline { max-width: 30ch; }
   .steps { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 520px) {
@@ -136,7 +156,21 @@ button, input { font: inherit; color: inherit; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .btn { transition: background-color 120ms ease, border-color 120ms ease; }
+  .who { transition: box-shadow 200ms ease; }
+  .mark .ch.pop { animation: pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+  .stream-run { animation: stream 70s linear infinite; }
+  .who.needs-name .n { animation: ping 1.9s ease-out infinite; }
+  .who.shake { animation: shake 380ms ease; }
+  .mine:not([hidden]) .mine-body { animation: rise 260ms ease-out; }
+  .done:not([hidden]) { animation: rise 280ms ease-out; }
+  .done:not([hidden]) path { stroke-dasharray: 18; animation: tick 420ms ease-out 160ms backwards; }
 }
+@keyframes pop { from { transform: translateY(0.14em); } }
+@keyframes stream { to { transform: translateX(-50%); } }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(35, 67, 221, 0.55); } 70%, 100% { box-shadow: 0 0 0 0.6rem rgba(35, 67, 221, 0); } }
+@keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes rise { from { transform: translateY(-8px); opacity: 0; } }
+@keyframes tick { from { stroke-dashoffset: 18; } }
 </style>
 </head>
 <body>
@@ -148,8 +182,9 @@ button, input { font: inherit; color: inherit; }
 
   <header class="hero">
     <div>
-      <h1 class="mark"><span class="b">AISS</span><span>Bytes</span></h1>
+      <h1 class="mark"><span class="w b">AISS</span> <span class="w">Bytes</span></h1>
       <p class="tagline"><strong>Short methods talks</strong> to present work in progress.</p>
+      <div id="stream" class="stream" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -168,10 +203,11 @@ button, input { font: inherit; color: inherit; }
       <p id="count" class="count" hidden></p>
     </div>
 
-    <label class="field who" id="who">
-      <span class="label">Your name</span>
-      <input id="name" type="text" maxlength="80" autocomplete="name" placeholder="First and last name">
-    </label>
+    <div class="who needs-name" id="who">
+      <label for="name" class="who-label"><span class="n">1</span>Your name</label>
+      <p class="who-hint" id="whoHint">Start here. Your name appears next to the slot you take.</p>
+      <input id="name" type="text" maxlength="80" autocomplete="name" placeholder="First and last name" aria-describedby="whoHint">
+    </div>
 
     <section id="mine" class="mine" aria-label="Your slot" hidden>
       <div class="mine-body">
@@ -361,7 +397,12 @@ button, input { font: inherit; color: inherit; }
   /* ---- actions ---- */
   function claim(slot, mine) {
     var name = $("name").value.trim();
-    if (!name) { flash(ERRORS.name_required, true); $("name").focus(); return; }
+    if (!name) {
+      flash(ERRORS.name_required, true);
+      $("who").classList.remove("shake"); void $("who").offsetWidth; $("who").classList.add("shake");
+      $("name").focus();
+      return;
+    }
     remember("name", name);
     act(slot.row, mine ? "Moved to the new slot." : "Slot saved. Add your paper or topic above.",
       { action: "claim", row: slot.row, date: slot.date, time: slot.time || "", name: name, topic: mine ? (mine.topic || "") : "" });
@@ -378,12 +419,99 @@ button, input { font: inherit; color: inherit; }
     act("topic", "", { action: "topic", topic: $("topic").value.trim() }, function () { S.topicDirty = false; S.topicSaved = true; });
   });
   $("name").addEventListener("change", function () { remember("name", $("name").value.trim()); });
+  function markName() { $("who").classList.toggle("needs-name", !$("name").value.trim()); }
+  $("name").addEventListener("input", markName);
 
   /* ---- start ---- */
   if (CONFIG.CONTACT) { $("foot").textContent = CONFIG.CONTACT; $("foot").hidden = false; }
   $("name").value = recall("name");
+  markName();
   $("doneNote").textContent = CONFIG.SAVED_NOTE || "";
   draw();
+
+  /* ---- movement: the name decodes from bits, a letter flips now and then,
+          and a ticker spells the name in binary ---- */
+  (function () {
+    var mark = document.querySelector(".mark"), stream = $("stream");
+    if (!mark) return;
+    var name = mark.textContent.replace(/\s+/g, " ").trim();
+
+    // Ticker: each letter followed by its byte, e.g. "B 01000010".
+    var first = name.split(" ")[0].length, run = h("div", { class: "stream-run" }), copy, i, k = 0;
+    for (copy = 0; copy < 2; copy++) {
+      var part = h("span");
+      for (i = 0, k = 0; i < name.length; i++) {
+        if (name[i] === " ") continue;
+        var bits = ("00000000" + name.charCodeAt(i).toString(2)).slice(-8);
+        part.appendChild(h("b", { class: k < first ? "b" : "", text: name[i] }));
+        part.appendChild(document.createTextNode(bits + "\u2003"));
+        k++;
+      }
+      run.appendChild(part);
+    }
+    stream.appendChild(run);
+
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Split the name into letters. Screen readers still get the whole name.
+    var chars = [];
+    mark.setAttribute("aria-label", name);
+    [].forEach.call(mark.querySelectorAll(".w"), function (word) {
+      var text = word.textContent;
+      word.textContent = "";
+      word.setAttribute("aria-hidden", "true");
+      text.split("").forEach(function (c) {
+        var el = h("span", { class: "ch", text: c });
+        el._c = c;
+        word.appendChild(el);
+        chars.push(el);
+      });
+    });
+
+    function toBit(el, cls) {
+      // Lock the box to the letter's width, in em so it still fits if the window is resized mid-flip.
+      if (!el._locked) { el._w = el.getBoundingClientRect().width / parseFloat(getComputedStyle(mark).fontSize); el.style.width = el._w + "em"; el._locked = true; }
+      var narrow = el._w < 0.5;   // a 0 would not fit where an I sits
+      el.textContent = narrow || Math.random() < 0.5 ? "1" : "0";
+      el.className = "ch " + cls;
+    }
+    function toLetter(el) { el.textContent = el._c; el.style.width = ""; el._locked = false; el.className = "ch pop"; }
+
+    var ready = false, onScreen = true;
+    function flip(el) {
+      if (!ready || el._busy) return;
+      el._busy = true;
+      var n = 0;
+      (function step() {
+        toBit(el, "flip");
+        if (++n < 4) setTimeout(step, 90);
+        else setTimeout(function () { toLetter(el); el._busy = false; }, 280);
+      })();
+    }
+    function intro() {
+      chars.forEach(function (el, i) {
+        setTimeout(function tick() { if (el._done) return; toBit(el, "bit"); el._t = setTimeout(tick, 70); }, i * 45);
+        setTimeout(function () { el._done = true; clearTimeout(el._t); toLetter(el); }, 560 + i * 95);
+      });
+      setTimeout(function () {
+        ready = true;
+        (function loop() {
+          setTimeout(function () {
+            if (onScreen && document.visibilityState === "visible") flip(chars[Math.floor(Math.random() * chars.length)]);
+            loop();
+          }, 2400 + Math.random() * 2400);
+        })();
+      }, 560 + chars.length * 95 + 1200);
+    }
+    mark.addEventListener("pointerover", function (ev) { if (ev.target._c) flip(ev.target); });
+    if (window.IntersectionObserver) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; }).observe(mark);
+
+    // Wait for the headline font so letter widths are measured correctly, but never wait long.
+    var started = false;
+    function start() { if (!started) { started = true; intro(); } }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+    setTimeout(start, 1500);
+  })();
 
   function refresh() {
     if (!CONFIG.API_URL || S.busy) return;
