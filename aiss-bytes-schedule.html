@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AISS Bytes Schedule</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+/* ======================================================================
+   SETTINGS — the only part you need to edit.
+   API_URL: the Google Apps Script "Web app URL" (it ends in /exec).
+   This page only READS the schedule. It has no sign-up form and contains
+   no code that sends anything to the sheet.
+   ====================================================================== */
+var CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbws_VFKxfLuSIo7uXiM2qMsd3rq0t1LVuozZInsEY0xY2SPJpMz6cau3vrKKkAGcG5n8A/exec",
+  OPEN_SLOT: "Speaker to be announced",   // shown for dates nobody has taken yet
+  CONTACT: ""   // optional footer line, e.g. "Questions: name@example.org"
+};
+</script>
+<style>
+/* Same visual system as the "Bits before Bytes" promo and the sign-up page: a pale
+   blue-grey sheet, heavy grotesque headlines, mono labels over thick rules, and
+   three flat colours (blue, navy, amber) with square corners. Light only. */
+:root {
+  --bg: #F2F4F8;
+  --surface: #FFFFFF;
+  --ink: #111A33;
+  --muted: #55607A;
+  --line: #C9D0DF;
+  --blue: #2343DD;
+  --navy: #12227A;
+  --amber: #F0A202;
+  --tint: #E3E8FB;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 56rem; margin-inline: auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 1.5rem 4rem; display: flex; flex-direction: column; gap: 2.75rem; }
+p, h1, h2, h3, ol, ul { margin: 0; }
+
+.label { font-family: var(--mono); font-weight: 400; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.topline { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+
+/* ---- hero: the seminar's name on one line, growing with the window ---- */
+.mark { font-family: var(--display); font-weight: 800; font-size: clamp(2.75rem, 17vw, 9.75rem); line-height: 0.9; letter-spacing: -0.03em; }
+.mark .b { color: var(--blue); }
+.mark .w { white-space: nowrap; }
+/* Each letter can turn into a bit (0 or 1) and back; its box keeps the letter's width meanwhile. */
+.mark .ch { display: inline-block; text-align: center; }
+.mark .ch.bit { opacity: 0.28; }
+.mark .ch.flip { color: var(--amber); }
+.tagline { margin-top: 1.4rem; font-size: clamp(1.125rem, 2.4vw, 1.5rem); line-height: 1.35; }
+.tagline strong { font-weight: 600; }
+/* A slow ticker spelling the name in binary, one byte per letter. */
+.stream { overflow: hidden; margin-top: 1.6rem; white-space: nowrap; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.12em; color: var(--muted);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+.stream:empty { display: none; }
+.stream-run { display: inline-flex; }
+.stream-run span { flex: none; padding-right: 2.2em; }
+.stream-run b { font-weight: 500; color: var(--ink); padding-right: 0.7em; }
+.stream-run b.b { color: var(--blue); }
+
+/* ---- next session: the one block in full colour ---- */
+.next { background: var(--blue); color: #FFFFFF; padding: 1.25rem 1.4rem 1.35rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.next .label { color: #FFFFFF; opacity: 0.85; }
+.next-when { font-family: var(--display); font-weight: 700; font-size: clamp(1.5rem, 4.2vw, 2.25rem); line-height: 1.12; letter-spacing: -0.01em; }
+.next-who { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.next-who .name { font-weight: 600; font-size: 1.1875rem; overflow-wrap: anywhere; }
+.next-who .topic { opacity: 0.9; overflow-wrap: anywhere; }
+.next-who .meta { font-family: var(--mono); font-size: 0.875rem; opacity: 0.9; }
+
+/* ---- schedule ---- */
+.schedule { display: flex; flex-direction: column; gap: 1.25rem; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1.5rem; }
+h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; line-height: 1.15; letter-spacing: -0.01em; }
+.count { font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.count strong { color: var(--ink); font-weight: 500; }
+
+.ruled { border-top: 2px solid var(--ink); padding-top: 0.7rem; }
+.empty { padding: 1.5rem 0; color: var(--muted); border-top: 2px solid var(--ink); }
+.empty strong { display: block; color: var(--ink); font-family: var(--display); font-size: 1.125rem; font-weight: 700; margin-bottom: 0.25rem; }
+.groups { display: flex; flex-direction: column; gap: 1.75rem; }
+.group h3 { margin-bottom: 0.5rem; font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); }
+.list { list-style: none; padding: 0; }
+.row { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); gap: 0.25rem 1rem; align-items: center; padding: 0.8rem 0.75rem; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row.is-next { background: var(--tint); border-top-color: transparent; }
+.row.is-next + .row { border-top-color: transparent; }
+.row.is-past { color: var(--muted); }
+.row.is-past .stub .dn { color: var(--muted); }
+
+.stub { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; gap: 0.25rem; }
+.stub .wd { font-family: var(--mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.stub .dn { font-family: var(--display); font-weight: 800; font-size: 1.875rem; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+.body { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.when { display: flex; flex-wrap: wrap; gap: 0.1rem 0.7rem; align-items: baseline; }
+.time { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.holder { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+.holder .name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.topic { color: var(--muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.chip { display: inline-block; font-family: var(--mono); font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
+.chip.solid { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
+.foot { padding-top: 0.75rem; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; }
+
+@media (max-width: 520px) {
+  .row { grid-template-columns: 2.75rem minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mark .ch.pop { animation: pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+  .stream-run { animation: stream 70s linear infinite; }
+  .next:not([hidden]) { animation: rise 280ms ease-out; }
+}
+@keyframes pop { from { transform: translateY(0.14em); } }
+@keyframes stream { to { transform: translateX(-50%); } }
+@keyframes rise { from { transform: translateY(-8px); opacity: 0; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="topline label">
+    <span>AI in Social Sciences Lab · Bocconi University</span>
+    <span>Schedule</span>
+  </div>
+
+  <header class="hero">
+    <h1 class="mark"><span class="w b">AISS</span> <span class="w">Bytes</span></h1>
+    <p class="tagline"><strong>Short methods talks</strong> to present work in progress.</p>
+    <div id="stream" class="stream" aria-hidden="true"></div>
+  </header>
+
+  <section id="next" class="next" aria-label="Next session" hidden>
+    <p class="label">Next session</p>
+    <p id="nextWhen" class="next-when"></p>
+    <ul id="nextWho" class="next-who"></ul>
+  </section>
+
+  <section class="schedule" aria-labelledby="schedTitle">
+    <div class="sec-head">
+      <h2 id="schedTitle" class="title">Schedule</h2>
+      <p id="count" class="count" hidden></p>
+    </div>
+    <p id="empty" class="empty"><strong>Loading the schedule</strong>The dates and speakers will appear here.</p>
+    <div id="list" class="groups"></div>
+  </section>
+
+  <p class="foot label"><span id="updated"></span><span id="contact"></span></p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var S = { slots: [], loaded: false, failed: false, at: null };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function h(tag, attrs) {
+    var el = document.createElement(tag), i, k;
+    if (attrs) for (k in attrs) {
+      if (k === "class") el.className = attrs[k];
+      else if (k === "text") el.textContent = attrs[k];
+      else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
+    }
+    for (i = 2; i < arguments.length; i++) if (arguments[i]) el.appendChild(arguments[i]);
+    return el;
+  }
+
+  /* ---- dates (kept as calendar days, never shifted by time zone) ---- */
+  function parseDay(iso) { var p = String(iso || "").split("-"); return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1); }
+  function isoDay(d) { function z(n) { return (n < 10 ? "0" : "") + n; } return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+  var fWd = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+  var fMonth = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
+  var fLong = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  var fClock = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+  /* ---- reading the Google Sheet (read-only: a plain GET, nothing is ever sent) ---- */
+  function load() {
+    return fetch(CONFIG.API_URL + "?t=" + Date.now(), { redirect: "follow" })
+      .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+      .then(function (d) { S.slots = d.slots || []; S.loaded = true; S.failed = false; S.at = new Date(); });
+  }
+
+  /* ---- drawing ---- */
+  function sorted() {
+    return S.slots.slice().sort(function (a, b) {
+      var x = a.date + (a.time || ""), y = b.date + (b.time || "");
+      return x < y ? -1 : x > y ? 1 : a.row - b.row;
+    });
+  }
+  function draw() {
+    var slots = sorted(), today = isoDay(new Date());
+    var upcoming = slots.filter(function (s) { return s.date >= today; });
+    var nextDate = upcoming.length ? upcoming[0].date : "";
+
+    var empty = $("empty");
+    empty.hidden = S.loaded && slots.length > 0;
+    if (!CONFIG.API_URL) {
+      empty.replaceChildren(h("strong", { text: "The schedule isn't connected yet" }),
+        document.createTextNode("The organizer still needs to paste the Google Sheet link into this page."));
+    } else if (S.failed && !S.loaded) {
+      empty.replaceChildren(h("strong", { text: "Couldn't load the schedule" }),
+        document.createTextNode("Check your connection and reload the page."));
+    } else if (S.loaded && !slots.length) {
+      empty.replaceChildren(h("strong", { text: "No dates yet" }),
+        document.createTextNode("The seminar dates haven't been announced. Check back soon."));
+    }
+
+    var count = $("count"), confirmed = upcoming.filter(function (s) { return s.name; }).length;
+    count.hidden = !(S.loaded && upcoming.length);
+    if (!count.hidden) count.replaceChildren(h("strong", { text: String(confirmed) }),
+      document.createTextNode(" of " + upcoming.length + " upcoming session" + (upcoming.length === 1 ? "" : "s") + " with a speaker"));
+
+    // Next session block.
+    var next = $("next"), nextRows = upcoming.filter(function (s) { return s.date === nextDate; });
+    next.hidden = !nextRows.length;
+    if (nextRows.length) {
+      $("nextWhen").textContent = fLong.format(parseDay(nextDate)) + (nextDate === today ? " (today)" : "");
+      var who = $("nextWho");
+      who.replaceChildren.apply(who, nextRows.map(function (s) {
+        var meta = [s.time, s.note].filter(Boolean).join(" · ");
+        return h("li", null,
+          meta ? h("p", { class: "meta", text: meta }) : null,
+          h("p", { class: "name", text: s.name || CONFIG.OPEN_SLOT }),
+          s.name && s.topic ? h("p", { class: "topic", text: s.topic }) : null);
+      }));
+    }
+
+    // One group per month, under a ruled heading.
+    var groups = [], byMonth = {};
+    if (S.loaded) slots.forEach(function (s) {
+      var key = s.date.slice(0, 7);
+      if (!byMonth[key]) {
+        byMonth[key] = h("ol", { class: "list" });
+        groups.push(h("section", { class: "group" },
+          h("h3", { class: "ruled", text: fMonth.format(parseDay(s.date)) }), byMonth[key]));
+      }
+      byMonth[key].appendChild(row(s, today, nextDate));
+    });
+    var list = $("list");
+    list.replaceChildren.apply(list, groups);
+
+    $("updated").textContent = S.at ? "Updated " + fClock.format(S.at) + " from the organizers' sheet" : "";
+  }
+
+  function row(slot, today, nextDate) {
+    var past = slot.date < today, isNext = slot.date === nextDate, d = parseDay(slot.date);
+    var stub = h("div", { class: "stub" },
+      h("span", { class: "wd", text: fWd.format(d) }),
+      h("span", { class: "dn", text: String(d.getDate()) }));
+    var when = h("p", { class: "when" },
+      h("span", { class: "time", text: slot.time || "Time to be confirmed" }),
+      slot.note ? h("span", { class: "note", text: slot.note }) : null);
+    var holder = h("p", { class: "holder" },
+      slot.name ? h("span", { class: "name", text: slot.name })
+                : h("span", { class: "chip", text: past ? "No session" : CONFIG.OPEN_SLOT }),
+      isNext ? h("span", { class: "chip solid", text: "Next" }) : null);
+    var body = h("div", { class: "body" }, when, holder, slot.name && slot.topic ? h("p", { class: "topic", text: slot.topic }) : null);
+    return h("li", { class: "row" + (isNext ? " is-next" : "") + (past ? " is-past" : "") }, stub, body);
+  }
+
+  /* ---- start ---- */
+  $("contact").textContent = CONFIG.CONTACT || "";
+  draw();
+  function refresh() {
+    if (!CONFIG.API_URL) return;
+    load().catch(function () { S.failed = true; }).then(draw);
+  }
+  refresh();
+  // Pick up changes to the sheet while the page stays open.
+  setInterval(function () { if (document.visibilityState === "visible") refresh(); }, 60000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refresh(); });
+
+  /* ---- movement: the name decodes from bits, a letter flips now and then,
+          and a ticker spells the name in binary ---- */
+  (function () {
+    var mark = document.querySelector(".mark"), stream = $("stream");
+    if (!mark) return;
+    var name = mark.textContent.replace(/\s+/g, " ").trim();
+
+    // Ticker: each letter followed by its byte, e.g. "B 01000010".
+    var first = name.split(" ")[0].length, run = h("div", { class: "stream-run" }), copy, i, k;
+    for (copy = 0; copy < 2; copy++) {
+      var part = h("span");
+      for (i = 0, k = 0; i < name.length; i++) {
+        if (name[i] === " ") continue;
+        var bits = ("00000000" + name.charCodeAt(i).toString(2)).slice(-8);
+        part.appendChild(h("b", { class: k < first ? "b" : "", text: name[i] }));
+        part.appendChild(document.createTextNode(bits + " "));
+        k++;
+      }
+      run.appendChild(part);
+    }
+    stream.appendChild(run);
+
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Split the name into letters. Screen readers still get the whole name.
+    var chars = [];
+    mark.setAttribute("aria-label", name);
+    [].forEach.call(mark.querySelectorAll(".w"), function (word) {
+      var text = word.textContent;
+      word.textContent = "";
+      word.setAttribute("aria-hidden", "true");
+      text.split("").forEach(function (c) {
+        var el = h("span", { class: "ch", text: c });
+        el._c = c;
+        word.appendChild(el);
+        chars.push(el);
+      });
+    });
+
+    function toBit(el, cls) {
+      // Lock the box to the letter's width, in em so it still fits if the window is resized mid-flip.
+      if (!el._locked) { el._w = el.getBoundingClientRect().width / parseFloat(getComputedStyle(mark).fontSize); el.style.width = el._w + "em"; el._locked = true; }
+      var narrow = el._w < 0.5;   // a 0 would not fit where an I sits
+      el.textContent = narrow || Math.random() < 0.5 ? "1" : "0";
+      el.className = "ch " + cls;
+    }
+    function toLetter(el) { el.textContent = el._c; el.style.width = ""; el._locked = false; el.className = "ch pop"; }
+
+    var ready = false, onScreen = true;
+    function flip(el) {
+      if (!ready || el._busy) return;
+      el._busy = true;
+      var n = 0;
+      (function step() {
+        toBit(el, "flip");
+        if (++n < 4) setTimeout(step, 90);
+        else setTimeout(function () { toLetter(el); el._busy = false; }, 280);
+      })();
+    }
+    function intro() {
+      chars.forEach(function (el, i) {
+        setTimeout(function tick() { if (el._done) return; toBit(el, "bit"); el._t = setTimeout(tick, 70); }, i * 45);
+        setTimeout(function () { el._done = true; clearTimeout(el._t); toLetter(el); }, 560 + i * 95);
+      });
+      setTimeout(function () {
+        ready = true;
+        (function loop() {
+          setTimeout(function () {
+            if (onScreen && document.visibilityState === "visible") flip(chars[Math.floor(Math.random() * chars.length)]);
+            loop();
+          }, 2400 + Math.random() * 2400);
+        })();
+      }, 560 + chars.length * 95 + 1200);
+    }
+    mark.addEventListener("pointerover", function (ev) { if (ev.target._c) flip(ev.target); });
+    if (window.IntersectionObserver) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; }).observe(mark);
+
+    // Wait for the headline font so letter widths are measured correctly, but never wait long.
+    var started = false;
+    function start() { if (!started) { started = true; intro(); } }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+    setTimeout(start, 1500);
+  })();
+})();
+</script>
+</body>
+</html>
