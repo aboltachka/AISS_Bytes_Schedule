@@ -72,7 +72,6 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .react { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.2rem; display: flex; flex-direction: column; gap: 0.8rem; box-shadow: 6px 6px 0 var(--line); margin-bottom: 0.4rem; }
 .react h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
 .react-sub { color: var(--muted); font-size: 0.9375rem; max-width: 60ch; }
-.react-sub .hl { font-weight: 600; color: var(--ink); background: var(--amber-soft); padding: 0.05em 0.3em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .react-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
 .vbtn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3.2rem; padding: 0.5rem 0.9rem; border: 2px solid; border-radius: 2px; cursor: pointer; font-family: var(--display); font-weight: 700; font-size: 1.1875rem; }
 .vbtn svg { flex: none; }
@@ -220,7 +219,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 
   <section class="react" aria-labelledby="reactTitle">
     <h2 id="reactTitle">Your reaction</h2>
-    <p class="react-sub">Do you agree with the point the speaker is making right now? Tap once. <strong class="hl">You can react again after a minute.</strong></p>
+    <p class="react-sub">Do you agree with the point the speaker is making right now? Tap once. You can react again after a minute.</p>
     <div class="react-btns">
       <button id="vAgree" class="vbtn agree" type="button">
         <svg width="20" height="20" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square" aria-hidden="true"><path d="M5 14.5l6 6L23 8"></path></svg>Agree</button>

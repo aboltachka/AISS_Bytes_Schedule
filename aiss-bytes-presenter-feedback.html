@@ -66,6 +66,10 @@ button { font: inherit; color: inherit; }
 .app.no-meter { grid-template-columns: minmax(0, 1fr) var(--panel-w) 0; }
 .app.no-panel.no-meter { grid-template-columns: minmax(0, 1fr) 0 0; }
 .app.no-panel .panel, .app.no-meter .meter { display: none; }
+/* Fixed columns, so hiding one part never moves another into its place. */
+.stage { grid-column: 1; grid-row: 1; }
+.panel { grid-column: 2; grid-row: 1; }
+.meter { grid-column: 3; grid-row: 1; }
 
 /* ---- agreement meter: a thin bar at the right edge of the window ---- */
 .meter { --lvl: 100%; --col: #148A6A; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.9rem 0 1rem; background: var(--surface); border-left: 1px solid var(--line); }
@@ -165,6 +169,11 @@ button { font: inherit; color: inherit; }
 @media (max-width: 760px) {
   .app, .app.no-panel, .app.no-meter, .app.no-panel.no-meter { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 3.2rem 45%; }
   .app.no-panel { grid-template-rows: minmax(0, 1fr) 3.2rem 0; }
+  .app.no-meter { grid-template-rows: minmax(0, 1fr) 0 45%; }
+  .app.no-panel.no-meter { grid-template-rows: minmax(0, 1fr) 0 0; }
+  .stage { grid-column: 1; grid-row: 1; }
+  .meter { grid-column: 1; grid-row: 2; }
+  .panel { grid-column: 1; grid-row: 3; }
   .meter { flex-direction: row; padding: 0 0.9rem; border-left: 0; border-top: 1px solid var(--line); }
   .m-track { flex: 1; width: auto; height: 8px; min-height: 0; }
   .m-fill { top: 0; right: auto; height: auto; width: var(--lvl); }
@@ -219,6 +228,7 @@ button { font: inherit; color: inherit; }
       <span id="blankNote" class="blanked" hidden>Screen blanked · B</span>
       <button id="change" type="button">Change file</button>
       <button id="togglePanel" type="button">Hide questions</button>
+      <button id="toggleMeter" type="button">Hide agreement</button>
       <button id="full" type="button">Full screen</button>
     </div>
   </section>
@@ -431,7 +441,7 @@ button { font: inherit; color: inherit; }
     var k = ev.key;
     if (k === "q" || k === "Q") { togglePanel(); return; }
     if (k === "e" || k === "E") { setDrawer(!Q.open); return; }
-    if (k === "a" || k === "A") { $("app").classList.toggle("no-meter"); setTimeout(function () { if (P.doc) go(P.page); }, 50); return; }
+    if (k === "a" || k === "A") { toggleMeter(); return; }
     if (k === "f" || k === "F" || k === "F5") { ev.preventDefault(); fullScreen(); return; }
     if (!P.doc || $("slideWrap").hidden) return;
     if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown" || k === " " || k === "Enter" || k === "n" || k === "N") { ev.preventDefault(); next(); }
@@ -456,6 +466,13 @@ button { font: inherit; color: inherit; }
   $("prev").addEventListener("click", prev);
   $("full").addEventListener("click", fullScreen);
   $("togglePanel").addEventListener("click", togglePanel);
+  function toggleMeter() {
+    var app = $("app"), hide = !app.classList.contains("no-meter");
+    app.classList.toggle("no-meter", hide);
+    $("toggleMeter").textContent = hide ? "Show agreement" : "Hide agreement";
+    setTimeout(function () { if (P.doc) go(P.page); }, 50);
+  }
+  $("toggleMeter").addEventListener("click", toggleMeter);
   $("change").addEventListener("click", function () { showPicker(); listFolder(); });
   var resizeT;
   window.addEventListener("resize", function () { clearTimeout(resizeT); resizeT = setTimeout(function () { if (P.doc && !$("slideWrap").hidden) go(P.page); }, 150); });
