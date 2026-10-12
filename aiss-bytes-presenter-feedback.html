@@ -572,7 +572,7 @@ button { font: inherit; color: inherit; }
   function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
   function loadQ() {
     return fetch(CONFIG.API_URL + "?key=" + KEY + "&view=presenter&t=" + Date.now(), { redirect: "follow" })
-      .then(readJson).then(function (d) { Q.data = d; Q.loaded = true; Q.failed = false; });
+      .then(readJson).then(function (d) { if (!d.questions) throw new Error(d.error || "no data"); Q.data = d; Q.loaded = true; Q.failed = false; });
   }
   function sendQ(body) {
     body.key = KEY; body.view = "presenter";

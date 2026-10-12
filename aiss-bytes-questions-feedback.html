@@ -207,6 +207,24 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 @keyframes deleting { 50% { opacity: 0.35; } }
 @keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(224, 48, 43, 0.5); } 50% { opacity: 0.25; box-shadow: 0 0 0 0.3rem rgba(224, 48, 43, 0); } }
 @keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+
+/* ---- organiser reset, folded away at the very bottom ---- */
+.org summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 0.4rem; }
+.org summary::-webkit-details-marker { display: none; }
+.org summary::before { content: "▸"; font-size: 0.75rem; transition: transform 0.15s; }
+.org[open] summary::before { transform: rotate(90deg); }
+.org-body { margin-top: 0.8rem; padding: 1rem; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 0.75rem; max-width: 34rem; }
+.org-title { font-family: var(--display); font-weight: 700; font-size: 1.125rem; line-height: 1.2; }
+.org-sub { font-size: 0.875rem; color: var(--muted); }
+.org-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.2rem; }
+.org-check { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.9375rem; cursor: pointer; }
+.org-check input { width: 1rem; height: 1rem; accent-color: var(--ink); margin: 0; }
+.org-pin { font: inherit; font-family: var(--mono); width: 8rem; padding: 0.5rem 0.65rem; border: 1px solid var(--ink); border-radius: 2px; background: var(--bg); color: var(--ink); }
+.org-btn { font: inherit; font-weight: 600; padding: 0.5rem 1rem; border: 1px solid var(--err); border-radius: 2px; background: var(--surface); color: var(--err); cursor: pointer; }
+.org-btn:hover, .org-btn.arm { background: var(--err); color: #FFFFFF; }
+.org-btn:disabled { opacity: 0.6; cursor: default; }
+.org-note { font-size: 0.875rem; min-height: 1.3em; }
+.org-note.err { color: var(--err); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -278,6 +296,22 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 
   <footer class="foot">
     <p class="foot-row label"><span id="today"></span><span id="contact"></span></p>
+    <details class="org" id="org">
+      <summary class="label">Organiser</summary>
+      <div class="org-body">
+        <p class="org-title">Restart for a new session</p>
+        <p class="org-sub">Clears today's questions and/or reactions for everyone. Nothing is lost: the rows move to archive tabs in the Google Sheet.</p>
+        <div class="org-row">
+          <label class="org-check"><input type="checkbox" id="orgQ" checked> Questions</label>
+          <label class="org-check"><input type="checkbox" id="orgR" checked> Reactions</label>
+        </div>
+        <div class="org-row">
+          <input class="org-pin" id="orgPin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="Organiser PIN">
+          <button class="org-btn" id="orgGo" type="button">Clear and restart</button>
+        </div>
+        <p class="org-note" id="orgNote" role="status"></p>
+      </div>
+    </details>
   </footer>
 </main>
 
@@ -326,7 +360,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
   function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
   function load() {
     return fetch(CONFIG.API_URL + "?key=" + KEY + "&t=" + Date.now(), { redirect: "follow" })
-      .then(readJson).then(function (d) { S.data = d; S.loaded = true; S.failed = false; syncVote(d); });
+      .then(readJson).then(function (d) { if (!d.questions) throw new Error(d.error || "no data"); S.data = d; S.loaded = true; S.failed = false; syncVote(d); });
   }
   function send(body) {
     body.key = KEY;
@@ -457,7 +491,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
         $("question").value = ""; count();
         var as = d.shownAs ? " You appear as " + d.shownAs.emoji + " " + d.shownAs.alias + "." : "";
         flash((timing === "end" ? "Saved for the end of the talk." : "Question sent.") + as, "ok");
-      } else flash(ERRORS[d.error] || "Couldn't send. Try again.", "err");
+      } else flash(ERRORS[d.error] || ("Couldn't send" + (d.detail ? " (" + d.detail + ")" : "") + ". Try again."), "err");
     }).catch(function () {
       flash("Couldn't reach the questions sheet. Check your connection and try again.", "err");
     }).then(function () { S.busy = false; draw(); });
@@ -511,7 +545,8 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
       if (d.ok) { V.chosen = which; V.msg = which === "agree" ? "Counted: you agree." : "Counted: you disagree."; }
       else if (d.error === "too_soon") { V.msg = "You already reacted in the last minute."; }
       else if (d.error === "bad_request") { V.msg = "The questions sheet needs its latest script for reactions."; V.err = true; }
-      else { V.msg = "Couldn't send. Try again."; V.err = true; }
+      else if (d.error === "busy") { V.msg = "Lots of reactions at once. Try again in a few seconds."; V.err = true; }
+      else { V.msg = "Couldn't send" + (d.detail ? " (" + d.detail + ")" : d.error ? " (" + d.error + ")" : "") + ". Try again."; V.err = true; }
       if (d.vote && d.vote.waitSeconds) V.until = Math.max(V.until, Date.now() + d.vote.waitSeconds * 1000);
     }).catch(function () {
       V.msg = "Couldn't reach the questions sheet. Try again."; V.err = true;
@@ -532,6 +567,45 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     if (!CONFIG.API_URL || S.busy) return;
     load().catch(function () { S.failed = true; }).then(draw);
   }
+  /* ---- organiser reset ---- */
+  var ORG = { armed: false, timer: 0, busy: false };
+  var ORG_ERRORS = {
+    no_pin_set: "No PIN is set yet. Type one in ORGANIZER_PIN at the top of the questions script, then redeploy it as a New version.",
+    wrong_pin: "Wrong PIN.",
+    pin_locked: "Too many wrong PINs. Try again in 10 minutes.",
+    nothing_chosen: "Tick questions, reactions, or both.",
+    busy: "The sheet is busy. Try again in a few seconds.",
+    bad_request: "The questions sheet needs its latest script: paste it and redeploy as a New version."
+  };
+  function orgNote(text, err) { $("orgNote").textContent = text; $("orgNote").className = "org-note" + (err ? " err" : ""); }
+  function orgDisarm() { ORG.armed = false; clearTimeout(ORG.timer); $("orgGo").classList.remove("arm"); $("orgGo").textContent = "Clear and restart"; }
+  $("orgGo").addEventListener("click", function () {
+    if (ORG.busy) return;
+    var q = $("orgQ").checked, r = $("orgR").checked, pin = $("orgPin").value.trim();
+    if (!q && !r) { orgNote(ORG_ERRORS.nothing_chosen, true); return; }
+    if (!pin) { orgNote("Type the PIN first.", true); $("orgPin").focus(); return; }
+    if (!CONFIG.API_URL) { orgNote("The page isn't connected to a sheet yet.", true); return; }
+    // First tap arms the button; the second, within 5 seconds, clears for everyone.
+    if (!ORG.armed) {
+      ORG.armed = true; $("orgGo").classList.add("arm");
+      $("orgGo").textContent = "Tap again to clear for everyone";
+      ORG.timer = setTimeout(orgDisarm, 5000); orgNote(""); return;
+    }
+    orgDisarm();
+    ORG.busy = true; $("orgGo").disabled = true; $("orgGo").textContent = "Clearing…"; orgNote("");
+    fetch(CONFIG.API_URL, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "reset", key: KEY, pin: pin, questions: q, reactions: r }) })
+      .then(readJson).then(function (d) {
+        if (d.ok) {
+          var what = q && r ? "Questions and reactions" : q ? "Questions" : "Reactions";
+          orgNote(what + " cleared. Everyone starts fresh."); $("orgPin").value = "";
+          if (d.questions) { S.data = d; S.loaded = true; }
+          draw();
+        } else orgNote(ORG_ERRORS[d.error] || ("Couldn't clear: " + (d.detail || d.error || "unknown problem") + "."), true);
+      }).catch(function () { orgNote("Couldn't reach the questions sheet. Try again.", true); })
+      .then(function () { ORG.busy = false; $("orgGo").disabled = false; $("orgGo").textContent = "Clear and restart"; });
+  });
+
   refresh();
   setInterval(function () { if (document.visibilityState === "visible") refresh(); }, Math.max(3, CONFIG.REFRESH_SECONDS) * 1000);
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refresh(); });
