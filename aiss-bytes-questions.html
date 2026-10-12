@@ -9,18 +9,17 @@
 /* ======================================================================
    SETTINGS — the only part you need to edit.
    API_URL: the "Web app URL" of the QUESTIONS sheet's script (it ends in /exec).
-   Use the questions sheet here, not the sign-up sheet.
    ====================================================================== */
 var CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbzRdq_o471jq7xJHW4iNCf2zwKCIpA6NmZbifUIHrVivwmbbKdHZxnFE2ivCJwRB68q/exec",
-  REFRESH_SECONDS: 6,   // how often the list checks for new questions
+  REFRESH_SECONDS: 6,   // how often the page checks for new questions
   CONTACT: ""           // optional footer line
 };
 </script>
 <style>
 /* Same visual system as the "Bits before Bytes" promo, the sign-up page and the
    schedule: a pale blue-grey sheet, heavy grotesque headlines, mono labels over
-   thick rules, flat blue / navy / amber, square corners. Light only. */
+   thick rules, flat blue / navy / amber. Questions are set as chat bubbles. Light only. */
 :root {
   --bg: #F2F4F8;
   --surface: #FFFFFF;
@@ -31,10 +30,15 @@ var CONFIG = {
   --navy: #12227A;
   --amber: #F0A202;
   --tint: #E3E8FB;
+  --amber-soft: #FDF0D2;
+  --amber-line: #F2C96B;
+  --blue-line: #B9C4F4;
+  --amber-dark: #D98F00;
   --err: #B42318;
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   color-scheme: light;
 }
 [hidden] { display: none !important; }
@@ -42,6 +46,7 @@ var CONFIG = {
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
 .wrap { max-width: 56rem; margin-inline: auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 1.5rem 4rem; display: flex; flex-direction: column; gap: 2.5rem; }
 p, h1, h2, h3, ol, ul { margin: 0; }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
 .label { font-family: var(--mono); font-weight: 400; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 .topline { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
@@ -56,65 +61,119 @@ p, h1, h2, h3, ol, ul { margin: 0; }
 .tagline { margin-top: 1.4rem; font-size: clamp(1.125rem, 2.4vw, 1.5rem); line-height: 1.35; }
 .tagline strong { font-weight: 600; }
 
-/* ---- ask box: the loudest element on the page ---- */
-.ask { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.3rem; display: flex; flex-direction: column; gap: 0.9rem; box-shadow: 6px 6px 0 var(--blue); margin-bottom: 0.4rem; }
+/* ---- ask box ---- */
+.ask { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.3rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 6px 6px 0 var(--blue); margin-bottom: 0.4rem; }
 .ask h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
+.timing { display: flex; flex-direction: column; gap: 0.45rem; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.opt { position: relative; display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.8rem 0.9rem; border: 2px solid var(--ink); border-radius: 2px; cursor: pointer; background: var(--bg); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt .tick { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 0.2rem; border: 2px solid var(--ink); border-radius: 50%; background: var(--surface); }
+.opt strong { display: block; font-family: var(--display); font-weight: 700; font-size: 1.125rem; line-height: 1.2; }
+.opt .sub { display: block; font-size: 0.875rem; color: var(--muted); margin-top: 0.15rem; }
+.opt.now { border-color: var(--blue); }
+.opt.end { border-color: var(--amber); }
+.opt.now.on { background: var(--blue); color: #FFFFFF; }
+.opt.now.on .sub { color: #FFFFFF; opacity: 0.88; }
+.opt.now.on .tick { border-color: #FFFFFF; background: #FFFFFF; box-shadow: inset 0 0 0 3px var(--blue); }
+.opt.end.on { background: var(--amber); color: var(--ink); }
+.opt.end.on .sub { color: var(--ink); opacity: 0.8; }
+.opt.end.on .tick { border-color: var(--ink); background: var(--ink); box-shadow: inset 0 0 0 3px var(--amber); }
+.ask.end { box-shadow: 6px 6px 0 var(--amber); }
+.opt:has(input:focus-visible) { outline: 3px solid var(--amber); outline-offset: 2px; }
+
 .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
-.field input, .field textarea { font: inherit; color: inherit; font-size: 1.0625rem; padding: 0.7rem 0.85rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--bg); width: 100%; min-width: 0; }
-.field textarea { min-height: 7rem; resize: vertical; line-height: 1.45; }
-.field input:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
-.field input::placeholder, .field textarea::placeholder { color: var(--muted); opacity: 0.8; }
-.who { max-width: 24rem; }
+.field textarea { font: inherit; color: inherit; font-size: 1.0625rem; padding: 0.7rem 0.85rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--bg); width: 100%; min-width: 0; min-height: 7rem; resize: vertical; line-height: 1.45; }
+.field textarea:focus-visible, .org input:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
+.field textarea::placeholder { color: var(--muted); opacity: 0.8; }
 .send-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; }
+.anon { font-size: 0.875rem; color: var(--muted); }
+.send-right { display: flex; align-items: center; gap: 1rem; margin-left: auto; }
 .counter { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .counter.over { color: var(--err); }
 .btn { font: inherit; border: 1px solid var(--blue); background: var(--blue); color: #FFFFFF; font-weight: 600; font-size: 1.0625rem; padding: 0.6rem 1.2rem; border-radius: 2px; cursor: pointer; white-space: nowrap; }
 .btn:hover { background: var(--navy); border-color: var(--navy); }
 .btn[disabled] { opacity: 0.55; cursor: default; }
+.btn.end { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.btn.end:hover { background: var(--amber-dark); border-color: var(--amber-dark); }
+.btn.quiet { background: var(--surface); color: var(--ink); border-color: var(--ink); font-size: 0.9375rem; padding: 0.5rem 0.9rem; }
+.btn.quiet:hover { background: var(--ink); color: #FFFFFF; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 #flash { font-size: 0.9375rem; color: var(--muted); min-height: 1.4em; }
 #flash.err { color: var(--err); font-weight: 500; }
 #flash.ok { color: var(--ink); font-weight: 500; }
+.emo { font-family: var(--emoji); font-style: normal; }
 
-/* ---- the live list ---- */
-.qa { display: flex; flex-direction: column; gap: 1rem; }
+/* ---- the thread ---- */
+.qa { display: flex; flex-direction: column; gap: 1.75rem; }
 .sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1.5rem; padding-top: 0.7rem; border-top: 2px solid var(--ink); }
-h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; line-height: 1.15; letter-spacing: -0.01em; }
+h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75rem, 4.6vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; }
 .live { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .live .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--amber); }
 .live.off .dot { background: var(--line); }
-.empty { padding: 1.25rem 0; color: var(--muted); }
-.empty strong { display: block; color: var(--ink); font-family: var(--display); font-size: 1.125rem; font-weight: 700; margin-bottom: 0.25rem; }
-.list { list-style: none; padding: 0; }
-.q { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: 0.25rem 1rem; padding: 0.95rem 0.75rem; border-top: 1px solid var(--line); }
-.q:first-child { border-top: 0; }
-.q.mine { background: var(--tint); border-top-color: transparent; }
-.q.mine + .q { border-top-color: transparent; }
-.q .at { font-family: var(--mono); font-weight: 500; font-size: 0.9375rem; font-variant-numeric: tabular-nums; padding-top: 0.1rem; }
-.q .body { min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
-.q .who-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; }
-.q .name { font-weight: 600; overflow-wrap: anywhere; }
-.q .text { font-size: 1.125rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-.q.answered .text, .q.answered .name, .q.answered .at { color: var(--muted); }
-.chip { display: inline-block; font-family: var(--mono); font-size: 0.75rem; padding: 0.05rem 0.5rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
-.chip.solid { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
+
+.part { display: flex; flex-direction: column; gap: 0.9rem; padding-top: 0.8rem; border-top: 4px solid var(--acc); }
+.part.now { --acc: var(--blue); --acc-ink: #FFFFFF; --acc-soft: var(--tint); --acc-line: var(--blue-line); --glow: 35, 67, 221; }
+.part.end { --acc: var(--amber); --acc-ink: var(--ink); --acc-soft: var(--amber-soft); --acc-line: var(--amber-line); --glow: 240, 162, 2; }
+.part-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
+.part-head h3 { font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.2; }
+.tag { font-family: var(--mono); font-size: 0.75rem; padding: 0.1rem 0.55rem; border-radius: 2px; border: 1px solid var(--ink); }
+.tag.now { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
+.tag.end { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.tag.wait { background: var(--amber-soft); border-color: var(--amber); color: var(--ink); }
+.quiet-note { color: var(--muted); }
+.waiting { border: 2px dashed var(--acc-line); background: var(--acc-soft); padding: 1rem 1.1rem; display: flex; align-items: center; gap: 1rem; }
+.waiting .n { font-family: var(--display); font-weight: 800; font-size: 2.5rem; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.waiting p { color: var(--ink); opacity: 0.8; }
+.waiting strong { color: var(--ink); font-weight: 600; }
+
+.thread { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1.1rem; }
+.msg { display: flex; gap: 0.7rem; align-items: flex-end; max-width: 46rem; }
+.msg.mine { flex-direction: row-reverse; margin-left: auto; }
+.avatar { flex: none; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; font-size: 1.4rem; line-height: 1; background: var(--surface); border: 1px solid var(--acc-line); border-radius: 8px; font-family: var(--emoji); }
+.msg-main { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+.msg.mine .msg-main { align-items: flex-end; }
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding-inline: 0.2rem; }
+.msg.mine .meta { justify-content: flex-end; }
+.meta .alias { font-weight: 600; font-size: 0.9375rem; }
+.meta .time { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meta .chip { font-family: var(--mono); font-size: 0.6875rem; padding: 0 0.4rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
+.bubble { background: var(--acc-soft); border: 1px solid var(--acc-line); color: var(--ink); border-radius: 16px 16px 16px 3px; padding: 0.7rem 0.95rem; font-size: 1.0625rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.msg.mine .bubble { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); border-radius: 16px 16px 3px 16px; }
+.msg.held .bubble { background: var(--acc-soft); border: 1.5px dashed var(--acc); color: var(--ink); }
+.msg.answered .bubble { opacity: 0.55; }
+.held-note { font-size: 0.8125rem; color: var(--muted); padding-inline: 0.2rem; }
 .link { font: inherit; border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 0.8125rem; }
 .link:hover { color: var(--ink); }
 .link.danger { color: var(--err); font-weight: 600; }
-.foot { padding-top: 0.75rem; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; }
 
-@media (max-width: 520px) {
-  .q { grid-template-columns: 2.9rem minmax(0, 1fr); gap: 0.25rem 0.7rem; }
+/* ---- footer and organizer panel ---- */
+.foot { padding-top: 0.75rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.9rem; }
+.foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; }
+.org summary { cursor: pointer; font-family: var(--mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.org-body { margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.7rem; max-width: 30rem; }
+.org-body p { font-size: 0.875rem; color: var(--muted); }
+.org input { font: inherit; padding: 0.5rem 0.7rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); width: 12rem; max-width: 100%; }
+.org-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+#orgFlash { font-size: 0.875rem; min-height: 1.3em; }
+#orgFlash.err { color: var(--err); }
+
+@media (max-width: 600px) {
+  .opts { grid-template-columns: minmax(0, 1fr); }
+  .avatar { width: 2.2rem; height: 2.2rem; font-size: 1.2rem; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .btn { transition: background-color 120ms ease, border-color 120ms ease; }
+  .opt { transition: background-color 150ms ease, color 150ms ease; }
   .mark .ch.pop { animation: pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-  .q.fresh { animation: fresh 2.6s ease-out; }
+  .msg.fresh .bubble { animation: fresh 2.4s ease-out; }
+  .msg.fresh { animation: pop-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; animation-delay: var(--d, 0ms); }
   .live:not(.off) .dot { animation: blink 2s ease-in-out infinite; }
   .ask.shake { animation: shake 380ms ease; }
 }
 @keyframes pop { from { transform: translateY(0.14em); } }
-@keyframes fresh { 0% { background-color: rgba(240, 162, 2, 0.45); transform: translateY(-6px); } 15% { transform: none; } 100% { background-color: transparent; } }
+@keyframes pop-in { from { transform: translateY(10px) scale(0.96); opacity: 0; } }
+@keyframes fresh { 0%, 30% { box-shadow: 0 0 0 4px rgba(var(--glow), 0.6); } 100% { box-shadow: 0 0 0 4px rgba(var(--glow), 0); } }
 @keyframes blink { 50% { opacity: 0.25; } }
 @keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
 </style>
@@ -128,41 +187,74 @@ h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; l
 
   <header class="hero">
     <h1 class="mark"><span class="w b">AISS</span> <span class="w">Bytes</span></h1>
-    <p class="tagline"><strong>Ask the speaker.</strong> Your question appears below for everyone in the room.</p>
+    <p class="tagline"><strong>Ask the speaker, anonymously.</strong> Your question appears below for everyone in the room.</p>
   </header>
 
   <form id="ask" class="ask" novalidate>
     <h2>Your question</h2>
-    <label class="field who"><span class="label">Your name</span>
-      <input id="name" type="text" maxlength="80" autocomplete="name" placeholder="First and last name">
-    </label>
+    <fieldset class="timing">
+      <legend class="label">When should the speaker see it?</legend>
+      <div class="opts">
+        <label class="opt now on" id="optNow"><input type="radio" name="when" value="now" checked><span class="tick" aria-hidden="true"></span>
+          <span><strong>Ask now</strong><span class="sub">Appears right away, and the speaker can see it during the talk.</span></span></label>
+        <label class="opt end" id="optEnd"><input type="radio" name="when" value="end"><span class="tick" aria-hidden="true"></span>
+          <span><strong>At the end</strong><span class="sub">Held back, then shown with all end-of-talk questions together.</span></span></label>
+      </div>
+    </fieldset>
     <label class="field"><span class="label">Question</span>
       <textarea id="question" maxlength="500" placeholder="Type your question for the speaker"></textarea>
     </label>
     <div class="send-row">
-      <span id="counter" class="counter">0 / 500</span>
-      <button id="send" class="btn" type="submit">Send question</button>
+      <div class="send-right">
+        <span id="counter" class="counter">0 / 500</span>
+        <button id="send" class="btn" type="submit">Send now</button>
+      </div>
     </div>
     <div id="flash" role="status" aria-live="polite"></div>
   </form>
 
   <section class="qa" aria-labelledby="qaTitle">
     <div class="sec-head">
-      <h2 id="qaTitle" class="title">Today's questions</h2>
+      <h2 id="qaTitle" class="title">The audience wants to know</h2>
       <span id="live" class="live off"><span class="dot" aria-hidden="true"></span><span id="liveText">Connecting</span></span>
     </div>
-    <p id="empty" class="empty"><strong>Loading questions</strong>Questions sent today will appear here, newest first.</p>
-    <ol id="list" class="list" aria-live="polite"></ol>
+
+    <div class="part now" aria-labelledby="nowTitle">
+      <div class="part-head"><h3 id="nowTitle">During the talk</h3><span class="tag now">Ask now</span></div>
+      <p id="nowEmpty" class="quiet-note">Loading questions…</p>
+      <ol id="nowList" class="thread"></ol>
+    </div>
+
+    <div class="part end" aria-labelledby="endTitle">
+      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span></div>
+      <div id="waiting" class="waiting" hidden><span id="waitN" class="n">0</span><p id="waitText"></p></div>
+      <p id="endEmpty" class="quiet-note" hidden></p>
+      <ol id="endList" class="thread"></ol>
+    </div>
   </section>
 
-  <p class="foot label"><span id="today"></span><span id="contact"></span></p>
+  <footer class="foot">
+    <p class="foot-row label"><span id="today"></span><span id="contact"></span></p>
+    <details id="org" class="org">
+      <summary>Organizer</summary>
+      <form id="orgForm" class="org-body" novalidate>
+        <p>Show the end-of-talk questions to everyone when the speaker finishes. This needs the organizer PIN set in the script.</p>
+        <input id="pin" type="password" autocomplete="off" placeholder="Organizer PIN" aria-label="Organizer PIN">
+        <div class="org-actions">
+          <button class="btn end" type="submit" data-show="1">Show end-of-talk questions</button>
+          <button class="btn quiet" type="submit" data-show="0">Hide them again</button>
+        </div>
+        <p id="orgFlash" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+  </footer>
 </main>
 
 <script>
 (function () {
   "use strict";
   var MAX = 500;
-  var S = { questions: [], loaded: false, failed: false, busy: false, seen: null, armed: null, armTimer: 0 };
+  var S = { data: null, loaded: false, failed: false, busy: false, seen: null, armed: null, armTimer: 0 };
   var $ = function (id) { return document.getElementById(id); };
 
   function h(tag, attrs) {
@@ -170,6 +262,7 @@ h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; l
     if (attrs) for (k in attrs) {
       if (k === "class") el.className = attrs[k];
       else if (k === "text") el.textContent = attrs[k];
+      else if (k === "style") el.setAttribute("style", attrs[k]);
       else if (k === "onclick") el.addEventListener("click", attrs[k]);
       else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
     }
@@ -177,8 +270,8 @@ h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; l
     return el;
   }
 
-  /* ---- this browser's memory: your name, and a private key that lets
-          only this browser delete the questions it sent ---- */
+  /* ---- this browser's private key: it lets only this browser delete the
+          questions it sent, and see its own end-of-talk questions early ---- */
   function remember(k, v) { try { localStorage.setItem("aiss-qa-" + k, v); } catch (e) {} }
   function recall(k) { try { return localStorage.getItem("aiss-qa-" + k) || ""; } catch (e) { return ""; } }
   function newKey() {
@@ -192,110 +285,138 @@ h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; l
 
   function flash(msg, kind) { var f = $("flash"); f.textContent = msg || ""; f.className = kind || ""; }
   var ERRORS = {
-    name_required: "Type your name first.",
     question_required: "Type a question first.",
     too_fast: "Wait a few seconds before sending another question.",
     busy: "Lots of questions at once. Try again in a few seconds.",
-    not_found: "That question was already removed."
+    not_found: "That question was already removed.",
+    wrong_pin: "That PIN is not right.",
+    no_pin: "No organizer PIN is set in the script yet. Release from the Settings tab instead."
   };
 
   /* ---- talking to the Google Sheet ---- */
   function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
   function load() {
     return fetch(CONFIG.API_URL + "?key=" + KEY + "&t=" + Date.now(), { redirect: "follow" })
-      .then(readJson).then(function (d) { apply(d.questions); S.failed = false; });
+      .then(readJson).then(function (d) { S.data = d; S.loaded = true; S.failed = false; });
   }
   function send(body) {
     body.key = KEY;
     // Sent as plain text on purpose: Google Apps Script only accepts this kind of request from another site.
     return fetch(CONFIG.API_URL, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
-      .then(readJson).then(function (d) { if (d.questions) apply(d.questions); return d; });
+      .then(readJson).then(function (d) { if (d.questions) { S.data = d; S.loaded = true; } return d; });
   }
-  function apply(list) { S.questions = list || []; S.loaded = true; }
 
   /* ---- drawing ---- */
   function draw() {
-    var qs = S.questions.slice().sort(function (a, b) { return b.at - a.at; });   // newest first
-    var empty = $("empty");
-    empty.hidden = S.loaded && qs.length > 0;
-    if (!CONFIG.API_URL) {
-      empty.replaceChildren(h("strong", { text: "Questions aren't connected yet" }),
-        document.createTextNode("The organizer still needs to paste the Google Sheet link into this page."));
-    } else if (S.failed && !S.loaded) {
-      empty.replaceChildren(h("strong", { text: "Couldn't load the questions" }),
-        document.createTextNode("Check your connection. The page keeps trying."));
-    } else if (S.loaded && !qs.length) {
-      empty.replaceChildren(h("strong", { text: "No questions yet" }),
-        document.createTextNode("Be the first to ask. Questions sent today appear here, newest first."));
-    }
+    var d = S.data || { questions: [], waiting: 0, released: false };
+    var qs = d.questions || [];
+    var now = qs.filter(function (q) { return q.when !== "end"; }).sort(function (a, b) { return b.at - a.at; });   // live feed: newest first
+    var end = qs.filter(function (q) { return q.when === "end"; }).sort(function (a, b) { return a.at - b.at; });   // in the order asked
+    var first = S.seen === null, seen = S.seen || {}, burst = 0;
 
-    var live = $("live");
-    live.className = "live" + (S.loaded && !S.failed ? "" : " off");
-    $("liveText").textContent = !S.loaded ? (S.failed ? "Offline" : "Connecting")
-      : S.failed ? "Reconnecting" : qs.length + " question" + (qs.length === 1 ? "" : "s") + " · live";
-
-    // Highlight questions that arrived since the last refresh (not the ones there on first load).
-    var first = S.seen === null, seen = S.seen || {};
-    var items = qs.map(function (q) {
+    function bubble(q) {
       var fresh = !first && !seen[q.id];
       seen[q.id] = true;
       var del = null;
       if (q.mine) {
         var armed = S.armed === q.id;
-        del = h("button", {
-          class: "link" + (armed ? " danger" : ""), type: "button", text: armed ? "Confirm delete" : "Delete",
-          onclick: function () { remove(q.id); }
-        });
+        del = h("button", { class: "link" + (armed ? " danger" : ""), type: "button", text: armed ? "Confirm delete" : "Delete", onclick: function () { remove(q.id); } });
       }
-      return h("li", { class: "q" + (q.mine ? " mine" : "") + (q.answered ? " answered" : "") + (fresh ? " fresh" : "") },
-        h("span", { class: "at", text: q.time || "" }),
-        h("div", { class: "body" },
-          h("p", { class: "who-line" },
-            h("span", { class: "name", text: q.name || "Someone" }),
-            q.mine ? h("span", { class: "chip solid", text: "Yours" }) : null,
+      return h("li", { class: "msg" + (q.mine ? " mine" : "") + (q.held ? " held" : "") + (q.answered ? " answered" : "") + (fresh ? " fresh" : ""),
+                       style: fresh ? "--d:" + Math.min(burst++ * 70, 1400) + "ms" : null },
+        h("span", { class: "avatar", "aria-hidden": "true", text: q.emoji || "🙂" }),
+        h("div", { class: "msg-main" },
+          h("p", { class: "meta" },
+            h("span", { class: "alias", text: q.alias || "A guest" }),
+            h("span", { class: "time", text: q.time || "" }),
+            q.mine ? h("span", { class: "chip", text: "You" }) : null,
             q.answered ? h("span", { class: "chip", text: "Answered" }) : null,
             del),
-          h("p", { class: "text", text: q.question })));
-    });
+          h("div", { class: "bubble", text: q.question }),
+          q.held ? h("p", { class: "held-note", text: "Held until the end of the talk. Only you can see it for now." }) : null));
+    }
+
+    var nowList = $("nowList"), endList = $("endList");
+    nowList.replaceChildren.apply(nowList, now.map(bubble));
+    endList.replaceChildren.apply(endList, end.map(bubble));
     if (S.loaded) S.seen = seen;
-    var list = $("list");
-    list.replaceChildren.apply(list, items);
+
+    // During the talk: empty and error states.
+    var nowEmpty = $("nowEmpty");
+    nowEmpty.hidden = S.loaded && now.length > 0;
+    nowEmpty.textContent = !CONFIG.API_URL ? "Questions aren't connected yet. The organizer still needs to paste the Google Sheet link into this page."
+      : !S.loaded ? (S.failed ? "Couldn't load the questions. Check your connection; the page keeps trying." : "Loading questions…")
+      : "No questions yet. Ask the first one above.";
+
+    // At the end: a counter while held, the questions once released.
+    var waiting = d.released ? 0 : (d.waiting || 0);
+    $("waiting").hidden = !S.loaded || d.released || waiting === 0;
+    $("waitN").textContent = String(waiting);
+    $("waitText").replaceChildren(
+      h("strong", { text: waiting === 1 ? "question is waiting" : "questions are waiting" }),
+      document.createTextNode(" for the end of the talk. They appear here all together when the speaker finishes."));
+    var endEmpty = $("endEmpty");
+    endEmpty.hidden = !S.loaded || waiting > 0 || end.length > 0;
+    endEmpty.textContent = d.released ? "No questions were saved for the end." : "Questions marked “At the end” wait here and appear all together when the speaker finishes.";
+    var tag = $("endTag");
+    tag.className = "tag " + (d.released ? "end" : "wait");
+    tag.textContent = d.released ? "Released" : "Held until the end";
+
+    var total = now.length + (d.released ? end.length : waiting);
+    $("live").className = "live" + (S.loaded && !S.failed ? "" : " off");
+    $("liveText").textContent = !S.loaded ? (S.failed ? "Offline" : "Connecting")
+      : S.failed ? "Reconnecting" : total + " question" + (total === 1 ? "" : "s") + " · live";
+
     $("send").disabled = S.busy;
-    $("send").textContent = S.busy ? "Sending…" : "Send question";
+    sendLabel();
   }
 
-  /* ---- actions ---- */
+  /* ---- asking ---- */
+  function when() { return document.querySelector('input[name="when"]:checked').value; }
+  function sendLabel() {
+    var end = when() === "end";
+    $("send").classList.toggle("end", end);
+    $("send").textContent = S.busy ? "Sending…" : end ? "Save for the end" : "Send now";
+  }
+  function markOpts() {
+    var end = when() === "end";
+    $("optNow").classList.toggle("on", !end);
+    $("optEnd").classList.toggle("on", end);
+    $("ask").classList.toggle("end", end);
+    sendLabel();
+    remember("when", when());
+  }
+  [].forEach.call(document.querySelectorAll('input[name="when"]'), function (r) { r.addEventListener("change", markOpts); });
+
   function count() {
     var n = $("question").value.length, c = $("counter");
     c.textContent = n + " / " + MAX;
     c.className = "counter" + (n >= MAX ? " over" : "");
   }
   $("question").addEventListener("input", count);
-  $("name").addEventListener("change", function () { remember("name", $("name").value.trim()); });
   // Ctrl+Enter or Cmd+Enter sends from the question box.
   $("question").addEventListener("keydown", function (ev) {
     if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); $("ask").requestSubmit ? $("ask").requestSubmit() : $("send").click(); }
   });
 
-  function nudge(fieldId, msg) {
-    flash(msg, "err");
-    var box = $("ask");
-    box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
-    $(fieldId).focus();
-  }
-
   $("ask").addEventListener("submit", function (ev) {
     ev.preventDefault();
     if (S.busy) return;
     if (!CONFIG.API_URL) { flash("Questions aren't connected yet.", "err"); return; }
-    var name = $("name").value.trim(), question = $("question").value.trim();
-    if (!name) return nudge("name", ERRORS.name_required);
-    if (!question) return nudge("question", ERRORS.question_required);
-    remember("name", name);
+    var question = $("question").value.trim(), timing = when();
+    if (!question) {
+      flash(ERRORS.question_required, "err");
+      var box = $("ask"); box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
+      $("question").focus();
+      return;
+    }
     S.busy = true; flash(""); draw();
-    send({ action: "ask", name: name, question: question }).then(function (d) {
-      if (d.ok) { $("question").value = ""; count(); flash("Question sent. It's at the top of the list.", "ok"); }
-      else flash(ERRORS[d.error] || "Couldn't send. Try again.", "err");
+    send({ action: "ask", question: question, when: timing }).then(function (d) {
+      if (d.ok) {
+        $("question").value = ""; count();
+        var as = d.shownAs ? " You appear as " + d.shownAs.emoji + " " + d.shownAs.alias + "." : "";
+        flash((timing === "end" ? "Saved for the end of the talk." : "Question sent.") + as, "ok");
+      } else flash(ERRORS[d.error] || "Couldn't send. Try again.", "err");
     }).catch(function () {
       flash("Couldn't reach the questions sheet. Check your connection and try again.", "err");
     }).then(function () { S.busy = false; draw(); });
@@ -315,8 +436,28 @@ h2.title { font-family: var(--display); font-weight: 700; font-size: 1.625rem; l
     }).then(function () { S.busy = false; draw(); });
   }
 
+  /* ---- organizer: release the end-of-talk questions ---- */
+  var orgShow = true;
+  [].forEach.call(document.querySelectorAll("#orgForm button"), function (b) {
+    b.addEventListener("click", function () { orgShow = b.getAttribute("data-show") === "1"; });
+  });
+  $("orgForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var f = $("orgFlash"), pin = $("pin").value.trim();
+    if (!pin) { f.textContent = "Type the organizer PIN first."; f.className = "err"; return; }
+    if (S.busy) return;
+    S.busy = true; f.textContent = "Working…"; f.className = "";
+    send({ action: "release", pin: pin, show: orgShow }).then(function (d) {
+      if (d.ok) { f.textContent = orgShow ? "End-of-talk questions are now shown to everyone." : "End-of-talk questions are hidden again."; f.className = ""; }
+      else { f.textContent = ERRORS[d.error] || "Couldn't change it. Try again."; f.className = "err"; }
+    }).catch(function () {
+      f.textContent = "Couldn't reach the questions sheet. Try again."; f.className = "err";
+    }).then(function () { S.busy = false; draw(); });
+  });
+
   /* ---- start ---- */
-  $("name").value = recall("name") || (function () { try { return localStorage.getItem("seminar-signup-name") || ""; } catch (e) { return ""; } })();
+  if (recall("when") === "end") { document.querySelector('input[value="end"]').checked = true; }
+  markOpts();
   $("today").textContent = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
   $("contact").textContent = CONFIG.CONTACT || "";
   count();
