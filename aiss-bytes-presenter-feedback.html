@@ -45,6 +45,9 @@ var CONFIG = {
   --amber-line: #F2C96B;
   --live: #E0302B;
   --meter-w: 46px;
+  --strip-w: 52px;
+  --red: #D2493B;
+  --green: #148A6A;
   --err: #B42318;
   --panel-w: clamp(300px, 25vw, 410px);
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
@@ -66,6 +69,11 @@ button { font: inherit; color: inherit; }
 .app.no-meter { grid-template-columns: minmax(0, 1fr) var(--panel-w) 0; }
 .app.no-panel.no-meter { grid-template-columns: minmax(0, 1fr) 0 0; }
 .app.no-panel .panel, .app.no-meter .meter { display: none; }
+/* Timeline view: the slides fold into a strip on the left, the questions stay,
+   and the agreement bar opens into a chart filling the rest of the screen. */
+.app.timeline { grid-template-columns: var(--strip-w) var(--panel-w) minmax(0, 1fr); }
+.app.timeline.no-panel { grid-template-columns: var(--strip-w) 0 minmax(0, 1fr); }
+.app.timeline .slide-wrap, .app.timeline .bar, .app.timeline .picker { display: none !important; }
 /* Fixed columns, so hiding one part never moves another into its place. */
 .stage { grid-column: 1; grid-row: 1; }
 .panel { grid-column: 2; grid-row: 1; }
@@ -77,6 +85,29 @@ button { font: inherit; color: inherit; }
 .m-track { position: relative; flex: 1; min-height: 4rem; width: 8px; background: #E4E8F0; border-radius: 4px; overflow: hidden; }
 .m-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--lvl); background: var(--col); border-radius: 4px; }
 .m-label { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); }
+
+.m-open { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; }
+.m-open:hover .m-track { box-shadow: 0 0 0 3px var(--tint); }
+.app.timeline .m-open { display: none; }
+.app.timeline .meter { padding: 0; align-items: stretch; }
+
+/* ---- timeline chart ---- */
+.tl { display: none; flex: 1; min-height: 0; flex-direction: column; padding: 1.1rem 1.4rem 1rem; gap: 0.6rem; }
+.app.timeline .tl { display: flex; }
+.tl-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.3rem 1.5rem; }
+.tl-head h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
+.tl-now { font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.tl-sub { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tl-plot { position: relative; flex: 1; min-height: 12rem; }
+.tl-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.tl-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 1rem; }
+
+/* ---- the folded slides strip ---- */
+.strip { display: none; flex: 1; width: 100%; border: 0; background: var(--stage); color: var(--stage-text); cursor: pointer; flex-direction: column; align-items: center; justify-content: center; gap: 0.9rem; padding: 1rem 0; }
+.strip:hover { background: var(--stage-bar); color: #FFFFFF; }
+.strip .arr { font-size: 1rem; }
+.strip .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; }
+.app.timeline .strip { display: flex; }
 
 /* ---- stage: the slides ---- */
 .stage { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--stage); }
@@ -178,8 +209,13 @@ button { font: inherit; color: inherit; }
   .m-track { flex: 1; width: auto; height: 8px; min-height: 0; }
   .m-fill { top: 0; right: auto; height: auto; width: var(--lvl); }
   .m-label { writing-mode: horizontal-tb; transform: none; }
+  .m-open { flex-direction: row; height: 100%; } .m-val { width: auto; }
+  .app.timeline.no-panel { grid-template-rows: 2.8rem minmax(0, 1fr) 0; }
   .panel { border-left: 0; border-top: 1px solid #000000; }
   .pick-card .mark { font-size: 2.4rem; }
+  .app.timeline { grid-template-columns: minmax(0, 1fr); grid-template-rows: 2.8rem minmax(0, 1fr) 40%; }
+  .app.timeline .meter { grid-row: 2; } .app.timeline .panel { grid-row: 3; }
+  .strip { flex-direction: row; } .strip .vt { writing-mode: horizontal-tb; transform: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .live:not(.off) .dot { animation: blink 1.2s ease-in-out infinite; }
@@ -189,7 +225,9 @@ button { font: inherit; color: inherit; }
   .m-fill { transition: height 800ms cubic-bezier(0.2, 0.8, 0.2, 1), width 800ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 800ms ease; }
   .meter.pulse .m-track { animation: mpulse 900ms ease-out; }
   .tab .chev { transition: transform 300ms ease; }
+  .app.timeline .tl, .app.timeline .strip { animation: tl-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 }
+@keyframes tl-in { from { opacity: 0; transform: translateX(24px); } }
 @keyframes mpulse { 0% { box-shadow: 0 0 0 0 rgba(17, 26, 51, 0.25); } 100% { box-shadow: 0 0 0 6px rgba(17, 26, 51, 0); } }
 @keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(224, 48, 43, 0.5); } 50% { opacity: 0.25; box-shadow: 0 0 0 0.3rem rgba(224, 48, 43, 0); } }
 @keyframes pop-in { from { transform: translateY(8px) scale(0.97); opacity: 0; } }
@@ -211,9 +249,13 @@ button { font: inherit; color: inherit; }
           <input id="localFile" type="file" accept="application/pdf,.pdf">
           <span>Use this if the folder list is empty or there is no internet.</span>
         </div>
-        <p class="keys">During the talk: <kbd>→</kbd> or the clicker for the next slide, <kbd>←</kbd> to go back, <kbd>F</kbd> full screen, <kbd>B</kbd> black screen, <kbd>Q</kbd> show or hide the questions, <kbd>E</kbd> open or close the end-of-talk questions, <kbd>A</kbd> show or hide the agreement meter.</p>
+        <p class="keys">During the talk: <kbd>→</kbd> or the clicker for the next slide, <kbd>←</kbd> to go back, <kbd>F</kbd> full screen, <kbd>B</kbd> black screen, <kbd>Q</kbd> show or hide the questions, <kbd>E</kbd> open or close the end-of-talk questions, <kbd>A</kbd> show or hide the agreement meter, <kbd>T</kbd> agreement over the talk.</p>
       </div>
     </div>
+
+    <button class="strip" id="strip" type="button" aria-label="Back to the slides">
+      <span class="arr" aria-hidden="true">◀</span><span class="vt">Back to slides</span><span class="vt" id="stripCount"></span>
+    </button>
 
     <div class="slide-wrap" id="slideWrap" hidden aria-live="polite">
       <p class="loading" id="loading" hidden>Loading slides</p>
@@ -263,9 +305,19 @@ button { font: inherit; color: inherit; }
   </aside>
 
   <section class="meter" id="meter" aria-label="Audience agreement">
-    <p class="m-val" id="mVal">100%</p>
-    <div class="m-track" role="meter" aria-label="Agreement" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="mTrack"><div class="m-fill"></div></div>
-    <p class="m-label">Agreement</p>
+    <button class="m-open" id="mOpen" type="button" title="Show agreement over the talk (T)">
+      <span class="m-val" id="mVal">100%</span>
+      <span class="m-track" role="meter" aria-label="Agreement" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="mTrack"><span class="m-fill"></span></span>
+      <span class="m-label">Agreement</span>
+    </button>
+    <div class="tl" id="tl">
+      <div class="tl-head">
+        <h2>Agreement over the talk</h2>
+        <span class="tl-now" id="tlNow">100%</span>
+      </div>
+      <p class="tl-sub" id="tlSub">Minute 0 is when the slides were opened</p>
+      <div class="tl-plot" id="tlPlot"><svg id="tlSvg" aria-hidden="true"></svg><p class="tl-msg" id="tlMsg" hidden></p></div>
+    </div>
   </section>
 </div>
 
@@ -361,6 +413,7 @@ button { font: inherit; color: inherit; }
       if (token !== P.token) return;
       if (P.doc && P.doc !== doc) { try { P.doc.destroy(); } catch (e) {} }
       P.doc = doc; P.count = doc.numPages; P.name = name; P.cache = {}; P.sizeKey = "";
+      startSession(name);
       go(Math.min(Math.max(1, page || 1), P.count));
     }).catch(function () {
       if (token !== P.token) return;
@@ -398,11 +451,32 @@ button { font: inherit; color: inherit; }
     P.cache[n].catch(function () { delete P.cache[n]; });
     return P.cache[n];
   }
+  /* ---- the talk's clock: minute 0 and when each slide was shown (kept across reloads that day) ---- */
+  var SES = { file: "", day: "", start: 0, marks: [] };
+  function today() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function startSession(name) {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem("aiss-pres-session") || "null"); } catch (e) {}
+    SES = saved && saved.file === name && saved.day === today() && saved.start ? saved : { file: name, day: today(), start: Date.now(), marks: [] };
+    saveSession();
+  }
+  function saveSession() { try { localStorage.setItem("aiss-pres-session", JSON.stringify(SES)); } catch (e) {} }
+  function markSlide(n) {
+    if (!SES.start) return;
+    var last = SES.marks[SES.marks.length - 1];
+    if (last && last.p === n) return;
+    SES.marks.push({ t: Date.now(), p: n });
+    if (SES.marks.length > 400) SES.marks.shift();
+    saveSession();
+  }
+
   function go(n) {
     if (!P.doc) return;
     n = Math.min(Math.max(1, n), P.count);
     P.page = n; P.want = n;
+    markSlide(n);
     $("count").textContent = n + " / " + P.count;
+    $("stripCount").textContent = n + " / " + P.count;
     if (P.fromFolder) { try { history.replaceState(null, "", "#f=" + encodeURIComponent(P.name) + "&p=" + n); } catch (e) {} }
     render(n).then(function (c) {
       if (P.want !== n) return;
@@ -442,6 +516,8 @@ button { font: inherit; color: inherit; }
     if (k === "q" || k === "Q") { togglePanel(); return; }
     if (k === "e" || k === "E") { setDrawer(!Q.open); return; }
     if (k === "a" || k === "A") { toggleMeter(); return; }
+    if (k === "t" || k === "T") { setTimeline(!inTimeline()); return; }
+    if (inTimeline() && /^(ArrowRight|ArrowDown|PageDown|ArrowLeft|ArrowUp|PageUp| |Enter|Escape)$/.test(k)) { ev.preventDefault(); setTimeline(false); return; }
     if (k === "f" || k === "F" || k === "F5") { ev.preventDefault(); fullScreen(); return; }
     if (!P.doc || $("slideWrap").hidden) return;
     if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown" || k === " " || k === "Enter" || k === "n" || k === "N") { ev.preventDefault(); next(); }
@@ -502,6 +578,85 @@ button { font: inherit; color: inherit; }
   }
   function note(text, err) { $("pNote").textContent = text; $("pNote").className = "p-note" + (err ? " err" : ""); }
 
+  /* ---- timeline view ---- */
+  function inTimeline() { return $("app").classList.contains("timeline"); }
+  function setTimeline(on) {
+    var app = $("app");
+    if (on && app.classList.contains("no-meter")) toggleMeter();
+    app.classList.toggle("timeline", on);
+    if (on) drawTimeline();
+    else setTimeout(function () { if (P.doc) go(P.page); }, 60);   // the slide area changed size
+  }
+  $("mOpen").addEventListener("click", function () { setTimeline(true); });
+  $("strip").addEventListener("click", function () { setTimeline(false); });
+
+  // The same rule as the bar, evaluated at time t: each person's latest reaction
+  // in the window before t, plus the cushion of imaginary agrees.
+  function levelAt(t, hist, win, cush) {
+    var latest = {}, i, a = 0, n = 0, k;
+    for (i = 0; i < hist.length && hist[i][0] <= t; i++) if (t - hist[i][0] <= win * 60000) latest[hist[i][2]] = hist[i][1];
+    for (k in latest) { n++; a += latest[k]; }
+    return 100 * (a + cush) / (n + cush);
+  }
+  function drawTimeline() {
+    if (!inTimeline()) return;
+    var svg = $("tlSvg"), msg = $("tlMsg"), fb = Q.data && Q.data.feedback;
+    var hist = (fb && fb.history) || [], win = (fb && fb.window) || 5, cush = (fb && fb.cushion) || 3;
+    var now = Date.now(), start = SES.start;
+    // "Now" is the server's own figure, so the header always matches the bar.
+    var nowLv = fb && typeof fb.level === "number" ? fb.level : levelAt(now, hist, win, cush);
+    $("tlNow").textContent = Math.round(nowLv) + "%";
+    $("tlNow").style.color = colourAt(nowLv);
+    if (!start) { svg.innerHTML = ""; msg.hidden = false; msg.textContent = "The timeline starts when the slides are opened. Go back to the slides and choose a presentation."; return; }
+    if (fb && !fb.history) { svg.innerHTML = ""; msg.hidden = false; msg.textContent = "The questions script is an older version. Paste the new script into the Google Sheet and redeploy it as a New version to see the timeline."; return; }
+    msg.hidden = true;
+    var st = new Date(start);
+    $("tlSub").textContent = "Minute 0 = slides opened at " + ("0" + st.getHours()).slice(-2) + ":" + ("0" + st.getMinutes()).slice(-2)
+      + " · each point: people's latest reaction in the " + win + " minutes before";
+
+    var r = $("tlPlot").getBoundingClientRect(), W = Math.max(200, r.width), H = Math.max(150, r.height);
+    var L = 46, R = 58, T = 26, B = 34;
+    var span = Math.max(10, Math.ceil((now - start) / 60000));        // minutes shown on the axis
+    var X = function (t) { return L + (t - start) / (span * 60000) * (W - L - R); };
+    var Y = function (v) { return T + (100 - v) / 100 * (H - T - B); };
+    var out = [];
+    // gradient: red at 0%, amber at 50%, green at 100%
+    out.push('<defs><linearGradient id="lg" gradientUnits="userSpaceOnUse" x1="0" y1="' + Y(0) + '" x2="0" y2="' + Y(100) + '">'
+      + '<stop offset="0" stop-color="#D2493B"/><stop offset="0.5" stop-color="#F0A202"/><stop offset="1" stop-color="#148A6A"/></linearGradient></defs>');
+    [0, 25, 50, 75, 100].forEach(function (v) {
+      out.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="' + (v === 0 ? "#111A33" : "#E1E5EE") + '" stroke-width="1"/>');
+      out.push('<text x="' + (L - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="11" fill="#55607A">' + v + '%</text>');
+    });
+    var step = span <= 12 ? 1 : span <= 30 ? 5 : span <= 90 ? 10 : 15;
+    for (var m = 0; m <= span; m += step) {
+      out.push('<line x1="' + X(start + m * 60000) + '" x2="' + X(start + m * 60000) + '" y1="' + Y(0) + '" y2="' + (Y(0) + 5) + '" stroke="#111A33"/>');
+      out.push('<text x="' + X(start + m * 60000) + '" y="' + (Y(0) + 19) + '" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#55607A">' + m + '</text>');
+    }
+    out.push('<text x="' + (W - R) + '" y="' + (H - 2) + '" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="#55607A" letter-spacing="1">MINUTES</text>');
+    // slide markers
+    var lastX = -99;
+    SES.marks.forEach(function (mk) {
+      if (mk.t < start || mk.t > now) return;
+      var x = X(mk.t);
+      out.push('<line x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + Y(0) + '" stroke="#9AA3B8" stroke-width="1" stroke-dasharray="3 4"/>');
+      if (x - lastX > 26) { out.push('<text x="' + (x + 3) + '" y="' + (T - 8) + '" font-family="IBM Plex Mono, monospace" font-size="10" fill="#55607A">S' + mk.p + '</text>'); lastX = x; }
+    });
+    // the line, sampled every 30 seconds, plus now
+    var pts = [], t;
+    for (t = start; t < now; t += 30000) pts.push([t, levelAt(t, hist, win, cush)]);
+    pts.push([now, nowLv]);
+    var line = pts.map(function (p, i) { return (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); }).join(" ");
+    out.push('<path d="' + line + " L" + X(now).toFixed(1) + " " + Y(0) + " L" + X(start) + " " + Y(0) + ' Z" fill="url(#lg)" fill-opacity="0.12"/>');
+    out.push('<path d="' + line + '" fill="none" stroke="url(#lg)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>');
+    var endP = pts[pts.length - 1];
+    out.push('<circle cx="' + X(endP[0]) + '" cy="' + Y(endP[1]) + '" r="5.5" fill="' + colourAt(endP[1]) + '" stroke="#FFFFFF" stroke-width="2"/>');
+    out.push('<text x="' + (X(endP[0]) + 10) + '" y="' + (Y(endP[1]) + 4) + '" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500" fill="#111A33">' + Math.round(endP[1]) + '%</text>');
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = out.join("");
+  }
+  setInterval(function () { if (inTimeline() && document.visibilityState === "visible") drawTimeline(); }, 15000);
+  window.addEventListener("resize", function () { if (inTimeline()) drawTimeline(); });
+
   /* ---- agreement meter ---- */
   // Colour runs from the red at 0% through the amber at 50% to the green at 100%.
   var STOPS = [[0, [210, 73, 59]], [50, [240, 162, 2]], [100, [20, 138, 106]]];
@@ -530,7 +685,7 @@ button { font: inherit; color: inherit; }
   }
 
   function drawQ() {
-    if (Q.data && Q.data.feedback) drawMeter(Q.data.feedback);
+    if (Q.data && Q.data.feedback) { drawMeter(Q.data.feedback); drawTimeline(); }
     var d = Q.data || { questions: [], waiting: 0, released: false };
     var qs = d.questions || [];
     var now = qs.filter(function (q) { return q.when !== "end"; }).sort(function (a, b) { return b.at - a.at; });   // newest first
