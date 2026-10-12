@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AISS Bytes Questions and Reactions</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+/* ======================================================================
+   SETTINGS — the only part you need to edit.
+   API_URL: the "Web app URL" of the QUESTIONS sheet's script (it ends in /exec).
+   ====================================================================== */
+var CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbzRdq_o471jq7xJHW4iNCf2zwKCIpA6NmZbifUIHrVivwmbbKdHZxnFE2ivCJwRB68q/exec",
+  REFRESH_SECONDS: 6,   // how often the page checks for new questions
+  CONTACT: ""           // optional footer line
+};
+</script>
+<style>
+/* Same visual system as the "Bits before Bytes" promo, the sign-up page and the
+   schedule: a pale blue-grey sheet, heavy grotesque headlines, mono labels over
+   thick rules, flat blue / navy / amber. Questions are set as chat bubbles. Light only. */
+:root {
+  --bg: #F2F4F8;
+  --surface: #FFFFFF;
+  --ink: #111A33;
+  --muted: #55607A;
+  --line: #C9D0DF;
+  --blue: #2343DD;
+  --navy: #12227A;
+  --amber: #F0A202;
+  --tint: #E3E8FB;
+  --amber-soft: #FDF0D2;
+  --amber-line: #F2C96B;
+  --blue-line: #B9C4F4;
+  --amber-dark: #D98F00;
+  --err: #B42318;
+  --live: #E0302B;
+  --agree: #148A6A;         /* teal green: sits with the blue and navy */
+  --agree-dark: #0F6E55;
+  --agree-soft: #E1F3EC;
+  --disagree: #D2493B;      /* warm red: sits with the amber */
+  --disagree-dark: #A93427;
+  --disagree-soft: #FBE8E4;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 56rem; margin-inline: auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 1.5rem 4rem; display: flex; flex-direction: column; gap: 2.5rem; }
+p, h1, h2, h3, ol, ul { margin: 0; }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+
+.label { font-family: var(--mono); font-weight: 400; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.topline { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+
+/* ---- hero: the seminar's name on one line, growing with the window ---- */
+.mark { font-family: var(--display); font-weight: 800; font-size: clamp(2.75rem, 17vw, 9.75rem); line-height: 0.9; letter-spacing: -0.03em; }
+.mark .b { color: var(--blue); }
+.mark .w { white-space: nowrap; }
+.mark .ch { display: inline-block; text-align: center; }
+.mark .ch.bit { opacity: 0.28; }
+.mark .ch.flip { color: var(--amber); }
+.tagline { margin-top: 1.4rem; font-size: clamp(1.125rem, 2.4vw, 1.5rem); line-height: 1.35; }
+.tagline strong { font-weight: 600; }
+
+/* ---- reaction: agree / disagree with the point being made ---- */
+.react { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.2rem; display: flex; flex-direction: column; gap: 0.8rem; box-shadow: 6px 6px 0 var(--line); margin-bottom: 0.4rem; }
+.react h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
+.react-sub { color: var(--muted); font-size: 0.9375rem; max-width: 60ch; }
+.react-sub .hl { font-weight: 600; color: var(--ink); background: var(--amber-soft); padding: 0.05em 0.3em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.react-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.vbtn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3.2rem; padding: 0.5rem 0.9rem; border: 2px solid; border-radius: 2px; cursor: pointer; font-family: var(--display); font-weight: 700; font-size: 1.1875rem; }
+.vbtn svg { flex: none; }
+.vbtn.agree { background: var(--agree-soft); border-color: var(--agree); color: var(--agree-dark); }
+.vbtn.disagree { background: var(--disagree-soft); border-color: var(--disagree); color: var(--disagree-dark); }
+.vbtn.agree:hover:not([disabled]) { background: var(--agree); color: #FFFFFF; }
+.vbtn.disagree:hover:not([disabled]) { background: var(--disagree); color: #FFFFFF; }
+.vbtn:active:not([disabled]) { transform: translateY(2px); }
+.vbtn[disabled] { opacity: 0.38; cursor: default; }
+.vbtn.agree.chosen[disabled] { opacity: 1; background: var(--agree); color: #FFFFFF; }
+.vbtn.disagree.chosen[disabled] { opacity: 1; background: var(--disagree); color: #FFFFFF; }
+.react-note { font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); min-height: 1.3em; }
+.react-note.err { color: var(--err); }
+
+/* ---- ask box ---- */
+.ask { background: var(--surface); border: 2px solid var(--ink); padding: 1.1rem 1.25rem 1.3rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 6px 6px 0 var(--blue); margin-bottom: 0.4rem; }
+.ask h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
+.timing { display: flex; flex-direction: column; gap: 0.45rem; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.opt { position: relative; display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.8rem 0.9rem; border: 2px solid var(--ink); border-radius: 2px; cursor: pointer; background: var(--bg); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt .tick { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 0.2rem; border: 2px solid var(--ink); border-radius: 50%; background: var(--surface); }
+.opt strong { display: block; font-family: var(--display); font-weight: 700; font-size: 1.125rem; line-height: 1.2; }
+.opt .sub { display: block; font-size: 0.875rem; color: var(--muted); margin-top: 0.15rem; }
+.opt.now { border-color: var(--blue); }
+.opt.end { border-color: var(--amber); }
+.opt.now.on { background: var(--blue); color: #FFFFFF; }
+.opt.now.on .sub { color: #FFFFFF; opacity: 0.88; }
+.opt.now.on .tick { border-color: #FFFFFF; background: #FFFFFF; box-shadow: inset 0 0 0 3px var(--blue); }
+.opt.end.on { background: var(--amber); color: var(--ink); }
+.opt.end.on .sub { color: var(--ink); opacity: 0.8; }
+.opt.end.on .tick { border-color: var(--ink); background: var(--ink); box-shadow: inset 0 0 0 3px var(--amber); }
+.ask.end { box-shadow: 6px 6px 0 var(--amber); }
+.opt:has(input:focus-visible) { outline: 3px solid var(--amber); outline-offset: 2px; }
+
+.field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.field textarea { font: inherit; color: inherit; font-size: 1.0625rem; padding: 0.7rem 0.85rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--bg); width: 100%; min-width: 0; min-height: 7rem; resize: vertical; line-height: 1.45; }
+.field textarea:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
+.field textarea::placeholder { color: var(--muted); opacity: 0.8; }
+.send-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; }
+.anon { font-size: 0.875rem; color: var(--muted); }
+.send-right { display: flex; align-items: center; gap: 1rem; margin-left: auto; }
+.counter { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.counter.over { color: var(--err); }
+.btn { font: inherit; border: 1px solid var(--blue); background: var(--blue); color: #FFFFFF; font-weight: 600; font-size: 1.0625rem; padding: 0.6rem 1.2rem; border-radius: 2px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--navy); border-color: var(--navy); }
+.btn[disabled] { opacity: 0.55; cursor: default; }
+.btn.end { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.btn.end:hover { background: var(--amber-dark); border-color: var(--amber-dark); }
+.btn.quiet { background: var(--surface); color: var(--ink); border-color: var(--ink); font-size: 0.9375rem; padding: 0.5rem 0.9rem; }
+.btn.quiet:hover { background: var(--ink); color: #FFFFFF; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+#flash { font-size: 0.9375rem; color: var(--muted); min-height: 1.4em; }
+#flash.err { color: var(--err); font-weight: 500; }
+#flash.ok { color: var(--ink); font-weight: 500; }
+.emo { font-family: var(--emoji); font-style: normal; }
+
+/* ---- the thread ---- */
+.qa { display: flex; flex-direction: column; gap: 1.75rem; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1.5rem; padding-top: 0.7rem; border-top: 2px solid var(--ink); }
+h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75rem, 4.6vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; }
+.live { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--mono); font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.live { flex-wrap: wrap; gap: 0.3rem 1rem; }
+.live .dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--live); margin-right: 0.45rem; vertical-align: 0.05em; }
+.live .stat b { font-weight: 600; color: var(--ink); }
+.live .stat.now::before, .live .stat.end::before { content: ""; display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.45rem; vertical-align: 0.02em; }
+.live .stat.now::before { background: var(--blue); }
+.live .stat.end::before { background: var(--amber); }
+.live.off .dot { background: var(--line); }
+
+.part { display: flex; flex-direction: column; gap: 0.9rem; padding-top: 0.8rem; border-top: 4px solid var(--acc); }
+.part.now { --acc: var(--blue); --acc-ink: #FFFFFF; --acc-soft: var(--tint); --acc-line: var(--blue-line); --glow: 35, 67, 221; }
+.part.end { --acc: var(--amber); --acc-ink: var(--ink); --acc-soft: var(--amber-soft); --acc-line: var(--amber-line); --glow: 240, 162, 2; }
+.part-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
+.part-head .btn { margin-left: auto; font-size: 0.9375rem; padding: 0.45rem 0.85rem; }
+.part-head h3 { font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.2; }
+.tag { font-family: var(--mono); font-size: 0.75rem; padding: 0.1rem 0.55rem; border-radius: 2px; border: 1px solid var(--ink); }
+.tag.now { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
+.tag.end { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.tag.wait { background: var(--amber-soft); border-color: var(--amber); color: var(--ink); }
+.quiet-note { color: var(--muted); }
+.waiting { border: 2px dashed var(--acc-line); background: var(--acc-soft); padding: 1rem 1.1rem; display: flex; align-items: center; gap: 1rem; }
+.waiting .n { font-family: var(--display); font-weight: 800; font-size: 2.5rem; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.waiting p { color: var(--ink); opacity: 0.8; }
+.waiting strong { color: var(--ink); font-weight: 600; }
+
+.thread { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1.1rem; }
+.msg { display: flex; gap: 0.7rem; align-items: flex-end; max-width: 46rem; }
+/* The side shows the kind of question: during the talk on the right, end of the talk on the left. */
+.part.now .msg { flex-direction: row-reverse; margin-left: auto; }
+.avatar { flex: none; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; font-size: 1.4rem; line-height: 1; background: var(--surface); border: 1px solid var(--acc-line); border-radius: 8px; font-family: var(--emoji); }
+.msg-main { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
+.part.now .msg-main { align-items: flex-end; }
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding-inline: 0.2rem; }
+.part.now .meta { justify-content: flex-end; }
+.meta .alias { font-weight: 600; font-size: 0.9375rem; }
+.meta .time { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meta .chip { font-family: var(--mono); font-size: 0.6875rem; padding: 0 0.4rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
+.bubble { background: var(--acc-soft); border: 1px solid var(--acc-line); color: var(--ink); border-radius: 16px 16px 16px 3px; padding: 0.7rem 0.95rem; font-size: 1.0625rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.part.now .bubble { border-radius: 16px 16px 3px 16px; }
+.msg.mine .bubble { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
+.msg.held .bubble { background: var(--acc-soft); border: 1.5px dashed var(--acc); color: var(--ink); }
+.msg.answered .bubble { opacity: 0.55; }
+.held-note { font-size: 0.8125rem; color: var(--muted); padding-inline: 0.2rem; }
+.link { font: inherit; border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 0.8125rem; }
+.link:hover { color: var(--ink); }
+.link.danger { color: var(--err); font-weight: 600; }
+
+/* ---- footer ---- */
+.foot { padding-top: 0.75rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.9rem; }
+.foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; }
+
+@media (max-width: 600px) {
+  .opts { grid-template-columns: minmax(0, 1fr); }
+  .avatar { width: 2.2rem; height: 2.2rem; font-size: 1.2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: background-color 120ms ease, border-color 120ms ease; }
+  .opt { transition: background-color 150ms ease, color 150ms ease; }
+  .mark .ch.pop { animation: pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+  .msg.fresh .bubble { animation: fresh 2.4s ease-out backwards; animation-delay: var(--d, 0ms); }
+  .msg.fresh { animation: pop-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; animation-delay: var(--d, 0ms); }
+  .live:not(.off) .dot { animation: blink 1.2s ease-in-out infinite; }
+  .ask.shake { animation: shake 380ms ease; }
+  .vbtn { transition: background-color 120ms ease, color 120ms ease, transform 80ms ease, opacity 200ms ease; }
+}
+@keyframes pop { from { transform: translateY(0.14em); } }
+@keyframes pop-in { from { transform: translateY(10px) scale(0.96); opacity: 0; } }
+@keyframes fresh { 0%, 30% { box-shadow: 0 0 0 4px rgba(var(--glow), 0.6); } 100% { box-shadow: 0 0 0 4px rgba(var(--glow), 0); } }
+@keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(224, 48, 43, 0.5); } 50% { opacity: 0.25; box-shadow: 0 0 0 0.3rem rgba(224, 48, 43, 0); } }
+@keyframes shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="topline label">
+    <span>AI in Social Sciences Lab · Bocconi University</span>
+    <span>Live questions</span>
+  </div>
+
+  <header class="hero">
+    <h1 class="mark"><span class="w b">AISS</span> <span class="w">Bytes</span></h1>
+    <p class="tagline"><strong>Ask the speaker.</strong> Send your question now, or save it for the end of the talk.</p>
+  </header>
+
+  <section class="react" aria-labelledby="reactTitle">
+    <h2 id="reactTitle">Your reaction</h2>
+    <p class="react-sub">Do you agree with the point the speaker is making right now? Tap once. <strong class="hl">You can react again after a minute.</strong></p>
+    <div class="react-btns">
+      <button id="vAgree" class="vbtn agree" type="button">
+        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square" aria-hidden="true"><path d="M5 14.5l6 6L23 8"></path></svg>Agree</button>
+      <button id="vDisagree" class="vbtn disagree" type="button">
+        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square" aria-hidden="true"><path d="M7 7l14 14M21 7L7 21"></path></svg>Disagree</button>
+    </div>
+    <p id="vNote" class="react-note" role="status" aria-live="polite"></p>
+  </section>
+
+  <form id="ask" class="ask" novalidate>
+    <h2>Your question</h2>
+    <fieldset class="timing">
+      <legend class="label">When should the speaker see it?</legend>
+      <div class="opts">
+        <label class="opt now on" id="optNow"><input type="radio" name="when" value="now" checked><span class="tick" aria-hidden="true"></span>
+          <span><strong>Ask now</strong><span class="sub">Appears right away, and the speaker can see it during the talk.</span></span></label>
+        <label class="opt end" id="optEnd"><input type="radio" name="when" value="end"><span class="tick" aria-hidden="true"></span>
+          <span><strong>At the end</strong><span class="sub">Held back, then shown with all end-of-talk questions together.</span></span></label>
+      </div>
+    </fieldset>
+    <label class="field"><span class="label">Question</span>
+      <textarea id="question" maxlength="500" placeholder="Type your question for the speaker"></textarea>
+    </label>
+    <div class="send-row">
+      <div class="send-right">
+        <span id="counter" class="counter">0 / 500</span>
+        <button id="send" class="btn" type="submit">Send now</button>
+      </div>
+    </div>
+    <div id="flash" role="status" aria-live="polite"></div>
+  </form>
+
+  <section class="qa" aria-labelledby="qaTitle">
+    <div class="sec-head">
+      <h2 id="qaTitle" class="title">The audience wants to know</h2>
+      <span id="live" class="live off"><span class="dot" aria-hidden="true"></span><span>Connecting</span></span>
+    </div>
+
+    <div class="part now" aria-labelledby="nowTitle">
+      <div class="part-head"><h3 id="nowTitle">During the talk</h3><span class="tag now">Ask now</span></div>
+      <p id="nowEmpty" class="quiet-note">Loading questions…</p>
+      <ol id="nowList" class="thread"></ol>
+    </div>
+
+    <div class="part end" aria-labelledby="endTitle">
+      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span>
+        <button id="toggleEnd" class="btn end" type="button" hidden>Unhide end-of-talk questions</button></div>
+      <p id="endFlash" class="quiet-note" role="status" aria-live="polite" hidden></p>
+      <div id="waiting" class="waiting" hidden><span id="waitN" class="n">0</span><p id="waitText"></p></div>
+      <p id="endEmpty" class="quiet-note" hidden></p>
+      <ol id="endList" class="thread"></ol>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p class="foot-row label"><span id="today"></span><span id="contact"></span></p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var MAX = 500;
+  var S = { data: null, loaded: false, failed: false, busy: false, hadData: false, firstSeen: null, armed: null, armTimer: 0 };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function h(tag, attrs) {
+    var el = document.createElement(tag), i, k;
+    if (attrs) for (k in attrs) {
+      if (k === "class") el.className = attrs[k];
+      else if (k === "text") el.textContent = attrs[k];
+      else if (k === "style") el.setAttribute("style", attrs[k]);
+      else if (k === "onclick") el.addEventListener("click", attrs[k]);
+      else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
+    }
+    for (i = 2; i < arguments.length; i++) if (arguments[i]) el.appendChild(arguments[i]);
+    return el;
+  }
+
+  /* ---- this browser's private key: it lets only this browser delete the
+          questions it sent, and see its own end-of-talk questions early ---- */
+  function remember(k, v) { try { localStorage.setItem("aiss-qa-" + k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem("aiss-qa-" + k) || ""; } catch (e) { return ""; } }
+  function newKey() {
+    var a = new Uint8Array(16), s = "", i;
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for (i = 0; i < a.length; i++) s += (a[i] < 16 ? "0" : "") + a[i].toString(16);
+    return s;
+  }
+  var KEY = recall("key");
+  if (!/^[a-f0-9]{32}$/.test(KEY)) { KEY = newKey(); remember("key", KEY); }
+
+  function flash(msg, kind) { var f = $("flash"); f.textContent = msg || ""; f.className = kind || ""; }
+  var ERRORS = {
+    question_required: "Type a question first.",
+    too_fast: "Wait a few seconds before sending another question.",
+    busy: "Lots of questions at once. Try again in a few seconds.",
+    not_found: "That question was already removed."
+  };
+
+  /* ---- talking to the Google Sheet ---- */
+  function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
+  function load() {
+    return fetch(CONFIG.API_URL + "?key=" + KEY + "&t=" + Date.now(), { redirect: "follow" })
+      .then(readJson).then(function (d) { S.data = d; S.loaded = true; S.failed = false; syncVote(d); });
+  }
+  function send(body) {
+    body.key = KEY;
+    // Sent as plain text on purpose: Google Apps Script only accepts this kind of request from another site.
+    return fetch(CONFIG.API_URL, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(readJson).then(function (d) { if (d.questions) { S.data = d; S.loaded = true; } syncVote(d); return d; });
+  }
+
+  /* ---- drawing ---- */
+  function draw() {
+    var d = S.data || { questions: [], waiting: 0, released: false };
+    var qs = d.questions || [];
+    var now = qs.filter(function (q) { return q.when !== "end"; }).sort(function (a, b) { return b.at - a.at; });   // live feed: newest first
+    var end = qs.filter(function (q) { return q.when === "end"; }).sort(function (a, b) { return a.at - b.at; });   // in the order asked
+    // A question that arrives after the page loaded glows briefly. The time it first appeared is kept,
+    // so the glow carries on smoothly when the list is redrawn by the next refresh.
+    var first = !S.hadData, burst = 0, nowMs = Date.now();
+    S.firstSeen = S.firstSeen || {};
+
+    function bubble(q) {
+      var t0 = S.firstSeen[q.id];
+      if (t0 === undefined) { t0 = first ? 0 : nowMs + Math.min(burst++ * 70, 1400); if (S.loaded) S.firstSeen[q.id] = t0; }
+      var age = nowMs - t0, fresh = t0 > 0 && age < 2400;
+      var del = null;
+      if (q.mine) {
+        var armed = S.armed === q.id;
+        del = h("button", { class: "link" + (armed ? " danger" : ""), type: "button", text: armed ? "Confirm delete" : "Delete", onclick: function () { remove(q.id); } });
+      }
+      return h("li", { class: "msg" + (q.mine ? " mine" : "") + (q.held ? " held" : "") + (q.answered ? " answered" : "") + (fresh ? " fresh" : ""),
+                       style: fresh ? "--d:" + (-age) + "ms" : null },
+        h("span", { class: "avatar", "aria-hidden": "true", text: q.emoji || "🙂" }),
+        h("div", { class: "msg-main" },
+          h("p", { class: "meta" },
+            h("span", { class: "alias", text: q.alias || "A guest" }),
+            h("span", { class: "time", text: q.time || "" }),
+            q.mine ? h("span", { class: "chip", text: "You" }) : null,
+            q.answered ? h("span", { class: "chip", text: "Answered" }) : null,
+            del),
+          h("div", { class: "bubble", text: q.question }),
+          q.held ? h("p", { class: "held-note", text: "Held until the end of the talk. Only you can see it for now." }) : null));
+    }
+
+    var nowList = $("nowList"), endList = $("endList");
+    nowList.replaceChildren.apply(nowList, now.map(bubble));
+    endList.replaceChildren.apply(endList, end.map(bubble));
+    if (S.loaded) S.hadData = true;
+
+    // During the talk: empty and error states.
+    var nowEmpty = $("nowEmpty");
+    nowEmpty.hidden = S.loaded && now.length > 0;
+    nowEmpty.textContent = !CONFIG.API_URL ? "Questions aren't connected yet. The organizer still needs to paste the Google Sheet link into this page."
+      : !S.loaded ? (S.failed ? "Couldn't load the questions. Check your connection; the page keeps trying." : "Loading questions…")
+      : "No questions yet. Ask the first one above.";
+
+    // At the end: a counter while held, the questions once released.
+    var waiting = d.released ? 0 : (d.waiting || 0);
+    $("waiting").hidden = !S.loaded || d.released || waiting === 0;
+    $("waitN").textContent = String(waiting);
+    $("waitText").replaceChildren(
+      h("strong", { text: waiting === 1 ? "question is waiting" : "questions are waiting" }),
+      document.createTextNode(" for the end of the talk. They appear here all together when the speaker finishes."));
+    var endEmpty = $("endEmpty");
+    endEmpty.hidden = !S.loaded || waiting > 0 || end.length > 0;
+    endEmpty.textContent = d.released ? "No questions were saved for the end." : "Questions marked “At the end” wait here and appear all together when the speaker finishes.";
+    var tb = $("toggleEnd");
+    tb.hidden = !S.loaded;
+    tb.disabled = S.busy;
+    tb.className = "btn " + (d.released ? "quiet" : "end");
+    tb.textContent = d.released ? "Hide end-of-talk questions" : "Unhide end-of-talk questions";
+    var tag = $("endTag");
+    tag.className = "tag " + (d.released ? "end" : "wait");
+    tag.textContent = d.released ? "Released" : "Held until the end";
+
+    // Live counts: questions during the talk, and for the end (held or shown).
+    var endCount = d.released ? end.length : waiting, live = $("live"), ok = S.loaded && !S.failed;
+    live.className = "live" + (ok ? "" : " off");
+    var state = h("span", { class: "stat" }, h("span", { class: "dot", "aria-hidden": "true" }),
+      document.createTextNode(ok ? "live" : !S.loaded ? (S.failed ? "Offline" : "Connecting") : "Reconnecting"));
+    if (!S.loaded) live.replaceChildren(state);
+    else live.replaceChildren(
+      h("span", { class: "stat now" }, h("b", { text: String(now.length) }), document.createTextNode(" during the talk")),
+      h("span", { class: "stat end" }, h("b", { text: String(endCount) }), document.createTextNode(" for the end")),
+      state);
+
+    $("send").disabled = S.busy;
+    sendLabel();
+  }
+
+  /* ---- asking ---- */
+  function when() { return document.querySelector('input[name="when"]:checked').value; }
+  function sendLabel() {
+    var end = when() === "end";
+    $("send").classList.toggle("end", end);
+    $("send").textContent = S.busy ? "Sending…" : end ? "Save for the end" : "Send now";
+  }
+  function markOpts() {
+    var end = when() === "end";
+    $("optNow").classList.toggle("on", !end);
+    $("optEnd").classList.toggle("on", end);
+    $("ask").classList.toggle("end", end);
+    sendLabel();
+    remember("when", when());
+  }
+  [].forEach.call(document.querySelectorAll('input[name="when"]'), function (r) { r.addEventListener("change", markOpts); });
+
+  function count() {
+    var n = $("question").value.length, c = $("counter");
+    c.textContent = n + " / " + MAX;
+    c.className = "counter" + (n >= MAX ? " over" : "");
+  }
+  $("question").addEventListener("input", count);
+  // Ctrl+Enter or Cmd+Enter sends from the question box.
+  $("question").addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); $("ask").requestSubmit ? $("ask").requestSubmit() : $("send").click(); }
+  });
+
+  $("ask").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    if (S.busy) return;
+    if (!CONFIG.API_URL) { flash("Questions aren't connected yet.", "err"); return; }
+    var question = $("question").value.trim(), timing = when();
+    if (!question) {
+      flash(ERRORS.question_required, "err");
+      var box = $("ask"); box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
+      $("question").focus();
+      return;
+    }
+    S.busy = true; flash(""); draw();
+    send({ action: "ask", question: question, when: timing }).then(function (d) {
+      if (d.ok) {
+        $("question").value = ""; count();
+        var as = d.shownAs ? " You appear as " + d.shownAs.emoji + " " + d.shownAs.alias + "." : "";
+        flash((timing === "end" ? "Saved for the end of the talk." : "Question sent.") + as, "ok");
+      } else flash(ERRORS[d.error] || "Couldn't send. Try again.", "err");
+    }).catch(function () {
+      flash("Couldn't reach the questions sheet. Check your connection and try again.", "err");
+    }).then(function () { S.busy = false; draw(); });
+  });
+
+  // Two clicks instead of a browser confirm dialog.
+  function remove(id) {
+    clearTimeout(S.armTimer);
+    if (S.armed !== id) { S.armed = id; S.armTimer = setTimeout(function () { S.armed = null; draw(); }, 5000); draw(); return; }
+    S.armed = null;
+    if (S.busy) return;
+    S.busy = true; draw();
+    send({ action: "delete", id: id }).then(function (d) {
+      flash(d.ok ? "Question deleted." : (ERRORS[d.error] || "Couldn't delete. Try again."), d.ok ? "ok" : "err");
+    }).catch(function () {
+      flash("Couldn't reach the questions sheet. Check your connection and try again.", "err");
+    }).then(function () { S.busy = false; draw(); });
+  }
+
+  /* ---- hide or unhide the end-of-talk questions for everyone ---- */
+  function endNote(msg) { $("endFlash").textContent = msg || ""; $("endFlash").hidden = !msg; }
+  $("toggleEnd").addEventListener("click", function () {
+    var released = !!(S.data && S.data.released);
+    if (S.busy) return;
+    S.busy = true; endNote(""); draw();
+    send({ action: "release", show: !released }).then(function (d) {
+      // An older script (with the PIN, or without this button) answers with one of these codes.
+      var outdated = d.error === "no_pin" || d.error === "wrong_pin" || d.error === "bad_request";
+      endNote(d.ok ? "" : outdated
+        ? "The questions sheet is still running the previous version of its script. Redeploy it as a New version (Deploy > Manage deployments)."
+        : (ERRORS[d.error] || "Couldn't change it. Try again."));
+    }).catch(function () {
+      endNote("Couldn't reach the questions sheet. Try again.");
+    }).then(function () { S.busy = false; draw(); });
+  });
+
+  /* ---- reactions: agree / disagree, one per person per minute ---- */
+  var V = { until: 0, busy: false, chosen: null, msg: "", err: false, timer: 0 };
+  function syncVote(d) {
+    var w = d && d.vote ? d.vote.waitSeconds : 0;
+    if (w > 0) V.until = Math.max(V.until, Date.now() + w * 1000);
+    voteTick();
+  }
+  function voteTick() {
+    clearTimeout(V.timer);
+    var left = Math.max(0, Math.ceil((V.until - Date.now()) / 1000)), lock = left > 0 || V.busy;
+    ["vAgree", "vDisagree"].forEach(function (id) {
+      var b = $(id), which = id === "vAgree" ? "agree" : "disagree";
+      b.disabled = lock;
+      b.classList.toggle("chosen", lock && V.chosen === which);
+    });
+    var n = $("vNote");
+    n.className = "react-note" + (V.err ? " err" : "");
+    n.textContent = V.busy ? "Sending…" : left > 0 ? (V.msg ? V.msg + " " : "") + "You can react again in " + left + " s." : V.msg;
+    if (left > 0) V.timer = setTimeout(voteTick, 1000);
+    else if (V.chosen) { V.chosen = null; V.msg = ""; V.err = false; n.textContent = ""; }
+  }
+  function vote(which) {
+    if (V.busy || Date.now() < V.until) return;
+    if (!CONFIG.API_URL) { V.msg = "Reactions aren't connected yet."; V.err = true; voteTick(); return; }
+    V.busy = true; V.msg = ""; V.err = false; voteTick();
+    send({ action: "vote", vote: which }).then(function (d) {
+      if (d.ok) { V.chosen = which; V.msg = which === "agree" ? "Counted: you agree." : "Counted: you disagree."; }
+      else if (d.error === "too_soon") { V.msg = "You already reacted in the last minute."; }
+      else if (d.error === "bad_request") { V.msg = "The questions sheet needs its latest script for reactions."; V.err = true; }
+      else { V.msg = "Couldn't send. Try again."; V.err = true; }
+      if (d.vote && d.vote.waitSeconds) V.until = Math.max(V.until, Date.now() + d.vote.waitSeconds * 1000);
+    }).catch(function () {
+      V.msg = "Couldn't reach the questions sheet. Try again."; V.err = true;
+    }).then(function () { V.busy = false; voteTick(); });
+  }
+  $("vAgree").addEventListener("click", function () { vote("agree"); });
+  $("vDisagree").addEventListener("click", function () { vote("disagree"); });
+
+  /* ---- start ---- */
+  if (recall("when") === "end") { document.querySelector('input[value="end"]').checked = true; }
+  markOpts();
+  $("today").textContent = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  $("contact").textContent = CONFIG.CONTACT || "";
+  count();
+  draw();
+
+  function refresh() {
+    if (!CONFIG.API_URL || S.busy) return;
+    load().catch(function () { S.failed = true; }).then(draw);
+  }
+  refresh();
+  setInterval(function () { if (document.visibilityState === "visible") refresh(); }, Math.max(3, CONFIG.REFRESH_SECONDS) * 1000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refresh(); });
+
+  /* ---- movement: the name decodes from bits when the page opens ---- */
+  (function () {
+    var mark = document.querySelector(".mark");
+    if (!mark || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+    var name = mark.textContent.replace(/\s+/g, " ").trim(), chars = [];
+    mark.setAttribute("aria-label", name);
+    [].forEach.call(mark.querySelectorAll(".w"), function (word) {
+      var text = word.textContent;
+      word.textContent = "";
+      word.setAttribute("aria-hidden", "true");
+      text.split("").forEach(function (c) { var el = h("span", { class: "ch", text: c }); el._c = c; word.appendChild(el); chars.push(el); });
+    });
+    function toBit(el, cls) {
+      if (!el._locked) { el._w = el.getBoundingClientRect().width / parseFloat(getComputedStyle(mark).fontSize); el.style.width = el._w + "em"; el._locked = true; }
+      el.textContent = el._w < 0.5 || Math.random() < 0.5 ? "1" : "0";
+      el.className = "ch " + cls;
+    }
+    function toLetter(el) { el.textContent = el._c; el.style.width = ""; el._locked = false; el.className = "ch pop"; }
+    var ready = false;
+    function flip(el) {
+      if (!ready || el._busy) return;
+      el._busy = true;
+      var n = 0;
+      (function step() { toBit(el, "flip"); if (++n < 4) setTimeout(step, 90); else setTimeout(function () { toLetter(el); el._busy = false; }, 280); })();
+    }
+    function intro() {
+      chars.forEach(function (el, i) {
+        setTimeout(function tick() { if (el._done) return; toBit(el, "bit"); el._t = setTimeout(tick, 70); }, i * 45);
+        setTimeout(function () { el._done = true; clearTimeout(el._t); toLetter(el); }, 560 + i * 95);
+      });
+      setTimeout(function () { ready = true; }, 560 + chars.length * 95 + 400);
+    }
+    mark.addEventListener("pointerover", function (ev) { if (ev.target._c) flip(ev.target); });
+    var started = false;
+    function start() { if (!started) { started = true; intro(); } }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+    setTimeout(start, 1500);
+  })();
+})();
+</script>
+</body>
+</html>

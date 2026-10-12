@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AISS Bytes Presenter with Reactions</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ======================================================================
+   SETTINGS — the only part you need to edit.
+   API_URL: the "Web app URL" of the QUESTIONS sheet's script (same as questions.html).
+   FOLDER:  the folder in this GitHub repository that holds the PDF slides.
+   GITHUB_OWNER / GITHUB_REPO: leave empty; they are read from the page address
+   (YOUR-USERNAME.github.io/REPO-NAME). Fill them in only if the list stays empty.
+   ====================================================================== */
+var CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbzRdq_o471jq7xJHW4iNCf2zwKCIpA6NmZbifUIHrVivwmbbKdHZxnFE2ivCJwRB68q/exec",
+  FOLDER: "presentations",
+  GITHUB_OWNER: "",
+  GITHUB_REPO: "",
+  REFRESH_SECONDS: 5
+};
+</script>
+<style>
+/* Presenter view in the AISS Bytes system: the slides sit on a dark ink stage on the
+   left; a narrow pale panel on the right carries the live questions, blue for
+   "during the talk" and amber for "at the end". Square corners, mono labels. */
+:root {
+  --bg: #F2F4F8;
+  --surface: #FFFFFF;
+  --ink: #111A33;
+  --stage: #0C1224;
+  --stage-bar: #151D36;
+  --stage-text: #AEB6CC;
+  --muted: #55607A;
+  --line: #C9D0DF;
+  --blue: #2343DD;
+  --navy: #12227A;
+  --amber: #F0A202;
+  --amber-dark: #D98F00;
+  --tint: #E3E8FB;
+  --blue-line: #B9C4F4;
+  --amber-soft: #FDF0D2;
+  --amber-line: #F2C96B;
+  --live: #E0302B;
+  --meter-w: 46px;
+  --err: #B42318;
+  --panel-w: clamp(300px, 25vw, 410px);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--stage); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45; }
+p, h1, h2, h3, ol, ul { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w) var(--meter-w); }
+.app.no-panel { grid-template-columns: minmax(0, 1fr) 0 var(--meter-w); }
+.app.no-meter { grid-template-columns: minmax(0, 1fr) var(--panel-w) 0; }
+.app.no-panel.no-meter { grid-template-columns: minmax(0, 1fr) 0 0; }
+.app.no-panel .panel, .app.no-meter .meter { display: none; }
+
+/* ---- agreement meter: a thin bar at the right edge of the window ---- */
+.meter { --lvl: 100%; --col: #148A6A; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.9rem 0 1rem; background: var(--surface); border-left: 1px solid var(--line); }
+.m-val { width: 100%; text-align: center; font-family: var(--mono); font-size: 0.75rem; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-track { position: relative; flex: 1; min-height: 4rem; width: 8px; background: #E4E8F0; border-radius: 4px; overflow: hidden; }
+.m-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--lvl); background: var(--col); border-radius: 4px; }
+.m-label { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--mono); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); }
+
+/* ---- stage: the slides ---- */
+.stage { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--stage); }
+.slide-wrap { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; cursor: pointer; user-select: none; touch-action: pan-y; }
+.slide-wrap canvas { display: block; background: #FFFFFF; box-shadow: 0 0.6rem 2rem rgba(0, 0, 0, 0.35); }
+.slide-wrap.idle { cursor: none; }
+.blackout { position: absolute; inset: 0; background: #000000; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--stage-text); font-family: var(--mono); font-size: 0.875rem; letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; }
+
+.bar { flex: none; height: 44px; display: flex; align-items: center; gap: 0.5rem; padding: 0 0.75rem; background: var(--stage-bar); color: var(--stage-text); font-family: var(--mono); font-size: 0.8125rem; }
+.bar .file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 0.5rem; }
+.bar .count { font-variant-numeric: tabular-nums; color: #FFFFFF; min-width: 5.5em; text-align: center; }
+.bar button { border: 1px solid rgba(174, 182, 204, 0.35); background: transparent; color: var(--stage-text); padding: 0.3rem 0.65rem; border-radius: 2px; cursor: pointer; font-family: var(--mono); font-size: 0.8125rem; white-space: nowrap; }
+.bar button:hover { background: rgba(255, 255, 255, 0.08); color: #FFFFFF; }
+.bar .blanked { color: var(--amber); }
+
+/* ---- picker: choose the PDF ---- */
+.picker { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 2rem 1.5rem; }
+.pick-card { width: min(40rem, 100%); background: var(--bg); padding: 1.75rem 1.75rem 1.5rem; display: flex; flex-direction: column; gap: 1.1rem; box-shadow: 8px 8px 0 var(--blue); }
+.mark { font-family: var(--display); font-weight: 800; line-height: 0.9; letter-spacing: -0.03em; white-space: nowrap; }
+.mark .b { color: var(--blue); }
+.pick-card .mark { font-size: 3.25rem; }
+.label { font-family: var(--mono); font-weight: 400; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.pick-card h1 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
+.files { list-style: none; padding: 0; display: flex; flex-direction: column; border-top: 2px solid var(--ink); }
+.files li { border-bottom: 1px solid var(--line); }
+.files button { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 0.8rem 0.4rem; border: 0; background: none; cursor: pointer; text-align: left; }
+.files button:hover { background: var(--tint); }
+.files .nm { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.files .sz { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.files .go { font-family: var(--mono); font-size: 0.8125rem; color: var(--blue); }
+.pick-msg { color: var(--muted); font-size: 0.9375rem; }
+.pick-msg.err { color: var(--err); }
+.local { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; padding-top: 0.4rem; }
+.local label { cursor: pointer; border: 2px solid var(--ink); padding: 0.45rem 0.85rem; border-radius: 2px; font-weight: 600; background: var(--surface); }
+.local label:hover { background: var(--ink); color: #FFFFFF; }
+.local input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.local span { font-size: 0.875rem; color: var(--muted); }
+.keys { font-size: 0.8125rem; color: var(--muted); }
+.keys kbd { font-family: var(--mono); font-size: 0.75rem; border: 1px solid var(--line); border-bottom-width: 2px; padding: 0 0.3rem; border-radius: 2px; background: var(--surface); }
+
+/* ---- panel: questions ---- */
+.panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); border-left: 1px solid #000000; }
+.p-head { flex: none; padding: 1rem 1.1rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; border-bottom: 1px solid var(--line); }
+.p-head .mark { font-size: 2rem; }
+.p-head .row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.live { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.live .dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--live); margin-right: 0.45rem; }
+.live.off .dot { background: var(--line); }
+
+/* The during-the-talk list fills the panel; the end-of-talk questions wait in a drawer
+   whose amber tab sits at the bottom and slides up over the list when pushed. */
+.sheets { position: relative; flex: 1; min-height: 0; overflow: hidden; --tab-h: 4.4rem; }
+.layer { position: absolute; inset: 0 0 var(--tab-h) 0; display: flex; flex-direction: column; }
+.layer-head { flex: none; display: flex; align-items: center; gap: 0.65rem; padding: 0.8rem 1.1rem 0.7rem; border-top: 4px solid var(--blue); }
+.layer-head h2 { flex: 1; font-family: var(--display); font-weight: 700; font-size: 1.1875rem; line-height: 1.2; }
+.badge { flex: none; min-width: 2.1rem; padding: 0.1rem 0.45rem; text-align: center; font-family: var(--display); font-weight: 800; font-size: 1.375rem; line-height: 1.2; border-radius: 2px; font-variant-numeric: tabular-nums; }
+.badge.now { background: var(--blue); color: #FFFFFF; }
+.badge.end { background: var(--ink); color: var(--amber); }
+
+.drawer { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--amber-soft); transform: translateY(calc(100% - var(--tab-h))); box-shadow: 0 -0.4rem 1.2rem rgba(17, 26, 51, 0.16); }
+.drawer.open { transform: translateY(0); }
+.tab { flex: none; height: var(--tab-h); width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0 1.1rem; border: 0; background: var(--amber); color: var(--ink); text-align: left; cursor: pointer; touch-action: none; }
+.tab:hover { background: var(--amber-dark); }
+.tab .chev { flex: none; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 2px; font-size: 0.75rem; line-height: 1; }
+.tab .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tab strong { font-family: var(--display); font-weight: 700; font-size: 1.125rem; line-height: 1.2; }
+.tab .sub { font-family: var(--mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
+.drawer.open .tab .chev { transform: rotate(180deg); }
+.drawer-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.p-note { flex: none; padding: 0.7rem 1.1rem 0; font-size: 0.75rem; color: var(--muted); }
+.p-note.err { color: var(--err); }
+.p-note:empty { display: none; }
+
+.qlist { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 0.3rem 1.1rem 1rem; display: flex; flex-direction: column; gap: 0.85rem; }
+.drawer .qlist { padding-top: 0.8rem; }
+.qlist.now { --acc: var(--blue); --acc-soft: var(--tint); --acc-line: var(--blue-line); --glow: 35, 67, 221; }
+.qlist.end { --acc: var(--amber); --acc-soft: #FFFFFF; --acc-line: var(--amber-line); --glow: 240, 162, 2; }
+.q { display: flex; gap: 0.55rem; align-items: flex-start; }
+.q .av { flex: none; width: 2rem; height: 2rem; display: grid; place-items: center; font-family: var(--emoji); font-size: 1.05rem; background: var(--surface); border: 1px solid var(--acc-line); border-radius: 6px; }
+.q .main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+.q .meta { display: flex; flex-wrap: wrap; gap: 0.1rem 0.5rem; align-items: baseline; }
+.q .who { font-weight: 600; font-size: 0.8125rem; }
+.q .time { font-family: var(--mono); font-size: 0.6875rem; color: var(--muted); }
+.q .chip { font-family: var(--mono); font-size: 0.625rem; padding: 0 0.35rem; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); }
+.q .bubble { background: var(--acc-soft); border: 1px solid var(--acc-line); border-radius: 3px 14px 14px 14px; padding: 0.55rem 0.75rem; font-size: 1.0625rem; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.q.answered .bubble { opacity: 0.5; }
+.empty { color: var(--muted); font-size: 0.9375rem; padding-top: 0.3rem; }
+
+@media (max-width: 760px) {
+  .app, .app.no-panel, .app.no-meter, .app.no-panel.no-meter { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 3.2rem 45%; }
+  .app.no-panel { grid-template-rows: minmax(0, 1fr) 3.2rem 0; }
+  .meter { flex-direction: row; padding: 0 0.9rem; border-left: 0; border-top: 1px solid var(--line); }
+  .m-track { flex: 1; width: auto; height: 8px; min-height: 0; }
+  .m-fill { top: 0; right: auto; height: auto; width: var(--lvl); }
+  .m-label { writing-mode: horizontal-tb; transform: none; }
+  .panel { border-left: 0; border-top: 1px solid #000000; }
+  .pick-card .mark { font-size: 2.4rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .live:not(.off) .dot { animation: blink 1.2s ease-in-out infinite; }
+  .q.fresh { animation: pop-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; animation-delay: var(--d, 0ms); }
+  .q.fresh .bubble { animation: fresh 2.4s ease-out backwards; animation-delay: var(--d, 0ms); }
+  .drawer { transition: transform 450ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .m-fill { transition: height 800ms cubic-bezier(0.2, 0.8, 0.2, 1), width 800ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 800ms ease; }
+  .meter.pulse .m-track { animation: mpulse 900ms ease-out; }
+  .tab .chev { transition: transform 300ms ease; }
+}
+@keyframes mpulse { 0% { box-shadow: 0 0 0 0 rgba(17, 26, 51, 0.25); } 100% { box-shadow: 0 0 0 6px rgba(17, 26, 51, 0); } }
+@keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(224, 48, 43, 0.5); } 50% { opacity: 0.25; box-shadow: 0 0 0 0.3rem rgba(224, 48, 43, 0); } }
+@keyframes pop-in { from { transform: translateY(8px) scale(0.97); opacity: 0; } }
+@keyframes fresh { 0%, 30% { box-shadow: 0 0 0 3px rgba(var(--glow), 0.6); } 100% { box-shadow: 0 0 0 3px rgba(var(--glow), 0); } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <section class="stage" aria-label="Presentation">
+    <div class="picker" id="picker">
+      <div class="pick-card">
+        <p class="label">AI in Social Sciences Lab · Presenter</p>
+        <p class="mark" aria-label="AISS Bytes"><span class="b">AISS</span> Bytes</p>
+        <h1>Choose the presentation</h1>
+        <p id="pickMsg" class="pick-msg">Looking for PDFs in the presentations folder…</p>
+        <ul id="files" class="files" hidden></ul>
+        <div class="local">
+          <label for="localFile">Open a PDF from this computer</label>
+          <input id="localFile" type="file" accept="application/pdf,.pdf">
+          <span>Use this if the folder list is empty or there is no internet.</span>
+        </div>
+        <p class="keys">During the talk: <kbd>→</kbd> or the clicker for the next slide, <kbd>←</kbd> to go back, <kbd>F</kbd> full screen, <kbd>B</kbd> black screen, <kbd>Q</kbd> show or hide the questions, <kbd>E</kbd> open or close the end-of-talk questions, <kbd>A</kbd> show or hide the agreement meter.</p>
+      </div>
+    </div>
+
+    <div class="slide-wrap" id="slideWrap" hidden aria-live="polite">
+      <p class="loading" id="loading" hidden>Loading slides</p>
+      <div class="blackout" id="blackout" hidden></div>
+    </div>
+
+    <div class="bar" id="bar" hidden>
+      <button id="prev" type="button" aria-label="Previous slide">◀</button>
+      <span id="count" class="count">– / –</span>
+      <button id="next" type="button" aria-label="Next slide">▶</button>
+      <span id="fileName" class="file"></span>
+      <span id="blankNote" class="blanked" hidden>Screen blanked · B</span>
+      <button id="change" type="button">Change file</button>
+      <button id="togglePanel" type="button">Hide questions</button>
+      <button id="full" type="button">Full screen</button>
+    </div>
+  </section>
+
+  <aside class="panel" id="panel" aria-label="Questions from the audience">
+    <div class="p-head">
+      <p class="mark" aria-label="AISS Bytes"><span class="b">AISS</span> Bytes</p>
+      <div class="row">
+        <span class="label">Questions from the room</span>
+        <span id="live" class="live off"><span class="dot" aria-hidden="true"></span><span id="liveText">Connecting</span></span>
+      </div>
+    </div>
+
+    <div class="sheets">
+      <section class="layer" id="nowLayer" aria-labelledby="nowTitle">
+        <div class="layer-head"><h2 id="nowTitle">During the talk</h2><span id="nNow" class="badge now">0</span></div>
+        <ol id="nowList" class="qlist now" aria-live="polite"></ol>
+      </section>
+
+      <section class="drawer" id="drawer" aria-labelledby="endTitle">
+        <button id="tab" class="tab" type="button" aria-expanded="false" aria-controls="drawerBody">
+          <span class="chev" aria-hidden="true">▲</span>
+          <span class="tt"><strong id="endTitle">At the end of the talk</strong><span id="endSub" class="sub">Held · push to show</span></span>
+          <span id="nEnd" class="badge end">0</span>
+        </button>
+        <div class="drawer-body" id="drawerBody">
+          <p id="pNote" class="p-note"></p>
+          <ol id="endList" class="qlist end" aria-live="polite"></ol>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <section class="meter" id="meter" aria-label="Audience agreement">
+    <p class="m-val" id="mVal">100%</p>
+    <div class="m-track" role="meter" aria-label="Agreement" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="mTrack"><div class="m-fill"></div></div>
+    <p class="m-label">Agreement</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function h(tag, attrs) {
+    var el = document.createElement(tag), i, k;
+    if (attrs) for (k in attrs) {
+      if (k === "class") el.className = attrs[k];
+      else if (k === "text") el.textContent = attrs[k];
+      else if (k === "style") el.setAttribute("style", attrs[k]);
+      else if (k === "onclick") el.addEventListener("click", attrs[k]);
+      else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
+    }
+    for (i = 2; i < arguments.length; i++) if (arguments[i]) el.appendChild(arguments[i]);
+    return el;
+  }
+  function store(k, v) { try { localStorage.setItem("aiss-qa-" + k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem("aiss-qa-" + k) || ""; } catch (e) { return ""; } }
+
+  /* =====================================================================
+     SLIDES
+     ===================================================================== */
+  var P = { doc: null, page: 1, count: 0, name: "", fromFolder: false, cache: {}, sizeKey: "", want: 0, black: false, token: 0 };
+  var pdfReady = !!window.pdfjsLib;
+  if (pdfReady) {
+    // The PDF engine's background worker, from the same CDN as the library
+    // (pdf.js wraps a cross-site worker itself, and falls back to the main thread if needed).
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  /* ---- the folder list, from GitHub ---- */
+  function repoInfo() {
+    var owner = CONFIG.GITHUB_OWNER, repo = CONFIG.GITHUB_REPO, host = location.hostname;
+    if (!owner && /\.github\.io$/i.test(host)) owner = host.replace(/\.github\.io$/i, "");
+    if (!repo) {
+      var first = location.pathname.split("/").filter(Boolean)[0] || "";
+      repo = first && !/\.html?$/i.test(first) ? first : (owner ? owner + ".github.io" : "");
+    }
+    return owner && repo ? { owner: owner, repo: repo } : null;
+  }
+  function folderPath(name) { return CONFIG.FOLDER.replace(/^\/+|\/+$/g, "") + "/" + name; }
+  function pickMsg(text, err) { $("pickMsg").textContent = text; $("pickMsg").className = "pick-msg" + (err ? " err" : ""); }
+
+  function listFolder() {
+    var info = repoInfo();
+    if (!info) { pickMsg("This page isn't running on GitHub Pages, so the folder can't be listed. Open a PDF from this computer instead.", true); return; }
+    var url = "https://api.github.com/repos/" + info.owner + "/" + info.repo + "/contents/" + encodeURI(CONFIG.FOLDER.replace(/^\/+|\/+$/g, ""));
+    fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then(function (r) {
+      if (r.status === 404) throw new Error("missing");
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function (items) {
+      var pdfs = (items || []).filter(function (f) { return f.type === "file" && /\.pdf$/i.test(f.name); })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      if (!pdfs.length) { pickMsg("No PDF files in the “" + CONFIG.FOLDER + "” folder yet. Upload one to GitHub, then reload this page."); return; }
+      pickMsg(pdfs.length === 1 ? "One presentation found." : pdfs.length + " presentations found.");
+      var ul = $("files");
+      ul.replaceChildren.apply(ul, pdfs.map(function (f) {
+        return h("li", null, h("button", { type: "button", onclick: function () { openFromFolder(f.name, 1); } },
+          h("span", { class: "nm", text: f.name.replace(/\.pdf$/i, "") }),
+          h("span", { class: "sz", text: (f.size / 1048576).toFixed(1) + " MB" }),
+          h("span", { class: "go", text: "Present ▶" })));
+      }));
+      ul.hidden = false;
+    }).catch(function (e) {
+      pickMsg(e.message === "missing"
+        ? "There is no folder called “" + CONFIG.FOLDER + "” in this repository. Check the FOLDER setting at the top of this file."
+        : "Couldn't list the folder (GitHub may be limiting requests). Reload in a minute, or open a PDF from this computer.", true);
+    });
+  }
+
+  /* ---- opening and showing a PDF ---- */
+  function openFromFolder(name, page) { P.fromFolder = true; openPdf(encodeURI(folderPath(name)), name, page); }
+  $("localFile").addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () { P.fromFolder = false; openPdf({ data: new Uint8Array(reader.result) }, f.name, 1); };
+    reader.readAsArrayBuffer(f);
+    this.value = "";
+  });
+
+  function openPdf(src, name, page) {
+    if (!pdfReady) { pickMsg("The slide viewer couldn't load. Check the internet connection and reload.", true); return; }
+    var token = ++P.token;
+    $("picker").hidden = true; $("slideWrap").hidden = false; $("bar").hidden = false;
+    $("loading").hidden = false; clearSlide();
+    $("fileName").textContent = name;
+    pdfjsLib.getDocument(src).promise.then(function (doc) {
+      if (token !== P.token) return;
+      if (P.doc && P.doc !== doc) { try { P.doc.destroy(); } catch (e) {} }
+      P.doc = doc; P.count = doc.numPages; P.name = name; P.cache = {}; P.sizeKey = "";
+      go(Math.min(Math.max(1, page || 1), P.count));
+    }).catch(function () {
+      if (token !== P.token) return;
+      showPicker();
+      pickMsg("Couldn't open “" + name + "”. Is it a valid PDF?", true);
+    });
+  }
+  function showPicker() {
+    $("picker").hidden = false; $("slideWrap").hidden = true; $("bar").hidden = true;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }
+  function clearSlide() { [].forEach.call($("slideWrap").querySelectorAll("canvas"), function (c) { c.remove(); }); }
+
+  function box() {
+    var r = $("slideWrap").getBoundingClientRect(), pad = 18;
+    return { w: Math.max(50, r.width - pad * 2), h: Math.max(50, r.height - pad * 2) };
+  }
+  // Render one page to a canvas sized to the stage; results are cached per page and stage size.
+  function render(n) {
+    var b = box(), key = Math.round(b.w) + "x" + Math.round(b.h);
+    if (key !== P.sizeKey) { P.cache = {}; P.sizeKey = key; }
+    if (P.cache[n]) return P.cache[n];
+    var doc = P.doc;
+    P.cache[n] = doc.getPage(n).then(function (page) {
+      var base = page.getViewport({ scale: 1 });
+      var scale = Math.min(b.w / base.width, b.h / base.height);
+      var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      var vp = page.getViewport({ scale: scale * dpr });
+      var c = document.createElement("canvas");
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      c.style.width = Math.floor(vp.width / dpr) + "px"; c.style.height = Math.floor(vp.height / dpr) + "px";
+      c.setAttribute("aria-label", "Slide " + n + " of " + doc.numPages);
+      return page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise.then(function () { return c; });
+    });
+    P.cache[n].catch(function () { delete P.cache[n]; });
+    return P.cache[n];
+  }
+  function go(n) {
+    if (!P.doc) return;
+    n = Math.min(Math.max(1, n), P.count);
+    P.page = n; P.want = n;
+    $("count").textContent = n + " / " + P.count;
+    if (P.fromFolder) { try { history.replaceState(null, "", "#f=" + encodeURIComponent(P.name) + "&p=" + n); } catch (e) {} }
+    render(n).then(function (c) {
+      if (P.want !== n) return;
+      $("loading").hidden = true;
+      clearSlide();
+      $("slideWrap").insertBefore(c, $("blackout"));
+      // Get the neighbours ready so the next click is instant.
+      if (n < P.count) render(n + 1);
+      if (n > 1) render(n - 1);
+    }).catch(function () { $("loading").hidden = false; $("loading").textContent = "Couldn't draw this slide"; });
+  }
+  function next() { if (P.black) return blank(false); go(P.page + 1); }
+  function prev() { if (P.black) return blank(false); go(P.page - 1); }
+  function blank(on) {
+    P.black = on === undefined ? !P.black : on;
+    $("blackout").hidden = !P.black; $("blankNote").hidden = !P.black;
+  }
+  function fullScreen() {
+    var d = document, el = d.documentElement;
+    try {
+      if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+      else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    } catch (e) {}
+  }
+  function togglePanel() {
+    var app = $("app"), hide = !app.classList.contains("no-panel");
+    app.classList.toggle("no-panel", hide);
+    $("togglePanel").textContent = hide ? "Show questions" : "Hide questions";
+    setTimeout(function () { if (P.doc) go(P.page); }, 50);
+  }
+
+  // Keyboard and presentation clickers (they send Page Down / Page Up, arrows, B or ".").
+  document.addEventListener("keydown", function (ev) {
+    var t = ev.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    var k = ev.key;
+    if (k === "q" || k === "Q") { togglePanel(); return; }
+    if (k === "e" || k === "E") { setDrawer(!Q.open); return; }
+    if (k === "a" || k === "A") { $("app").classList.toggle("no-meter"); setTimeout(function () { if (P.doc) go(P.page); }, 50); return; }
+    if (k === "f" || k === "F" || k === "F5") { ev.preventDefault(); fullScreen(); return; }
+    if (!P.doc || $("slideWrap").hidden) return;
+    if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown" || k === " " || k === "Enter" || k === "n" || k === "N") { ev.preventDefault(); next(); }
+    else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp" || k === "Backspace" || k === "p" || k === "P") { ev.preventDefault(); prev(); }
+    else if (k === "Home") { ev.preventDefault(); go(1); }
+    else if (k === "End") { ev.preventDefault(); go(P.count); }
+    else if (k === "b" || k === "B" || k === ".") { ev.preventDefault(); blank(); }
+  });
+  // Click the slide for the next one; Shift-click or right-click to go back; swipe on a tablet.
+  var wrap = $("slideWrap"), downX = null;
+  wrap.addEventListener("pointerdown", function (ev) { downX = ev.clientX; });
+  wrap.addEventListener("pointerup", function (ev) {
+    if (downX === null || ev.button !== 0) return;
+    var dx = ev.clientX - downX; downX = null;
+    if (Math.abs(dx) > 50 && ev.pointerType !== "mouse") { dx < 0 ? next() : prev(); return; }
+    ev.shiftKey ? prev() : next();
+  });
+  wrap.addEventListener("contextmenu", function (ev) { ev.preventDefault(); prev(); });
+  var idle;
+  wrap.addEventListener("mousemove", function () { wrap.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(function () { wrap.classList.add("idle"); }, 2500); });
+  $("next").addEventListener("click", next);
+  $("prev").addEventListener("click", prev);
+  $("full").addEventListener("click", fullScreen);
+  $("togglePanel").addEventListener("click", togglePanel);
+  $("change").addEventListener("click", function () { showPicker(); listFolder(); });
+  var resizeT;
+  window.addEventListener("resize", function () { clearTimeout(resizeT); resizeT = setTimeout(function () { if (P.doc && !$("slideWrap").hidden) go(P.page); }, 150); });
+
+  /* =====================================================================
+     QUESTIONS (the same Google Sheet as questions.html)
+     ===================================================================== */
+  var Q = { data: null, loaded: false, failed: false, busy: false, open: false, hadData: false, firstSeen: {} };
+  function newKey() {
+    var a = new Uint8Array(16), s = "", i;
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for (i = 0; i < a.length; i++) s += (a[i] < 16 ? "0" : "") + a[i].toString(16);
+    return s;
+  }
+  var KEY = recall("key");
+  if (!/^[a-f0-9]{32}$/.test(KEY)) { KEY = newKey(); store("key", KEY); }
+
+  function readJson(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }
+  function loadQ() {
+    return fetch(CONFIG.API_URL + "?key=" + KEY + "&view=presenter&t=" + Date.now(), { redirect: "follow" })
+      .then(readJson).then(function (d) { Q.data = d; Q.loaded = true; Q.failed = false; });
+  }
+  function sendQ(body) {
+    body.key = KEY; body.view = "presenter";
+    return fetch(CONFIG.API_URL, { method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(readJson).then(function (d) { if (d.questions) { Q.data = d; Q.loaded = true; } return d; });
+  }
+  function note(text, err) { $("pNote").textContent = text; $("pNote").className = "p-note" + (err ? " err" : ""); }
+
+  /* ---- agreement meter ---- */
+  // Colour runs from the red at 0% through the amber at 50% to the green at 100%.
+  var STOPS = [[0, [210, 73, 59]], [50, [240, 162, 2]], [100, [20, 138, 106]]];
+  function colourAt(v) {
+    for (var i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) {
+      var a = STOPS[i - 1], b = STOPS[i], t = (v - a[0]) / (b[0] - a[0]);
+      return "rgb(" + a[1].map(function (c, j) { return Math.round(c + (b[1][j] - c) * t); }).join(",") + ")";
+    }
+    return "rgb(" + STOPS[STOPS.length - 1][1].join(",") + ")";
+  }
+  var M = { shown: null };
+  function drawMeter(fb) {
+    if (!fb) return;
+    var lvl = Math.max(0, Math.min(100, Number(fb.level) || 0)), meter = $("meter");
+    meter.style.setProperty("--lvl", lvl + "%");
+    meter.style.setProperty("--col", colourAt(lvl));
+    $("mVal").textContent = Math.round(lvl) + "%";
+    $("mTrack").setAttribute("aria-valuenow", String(Math.round(lvl)));
+    if (M.shown !== null && Math.round(lvl) !== Math.round(M.shown)) { meter.classList.remove("pulse"); void meter.offsetWidth; meter.classList.add("pulse"); }
+    M.shown = lvl;
+  }
+
+  function scrollToNewest(list) {
+    var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    try { list.scrollTo({ top: 0, behavior: calm ? "auto" : "smooth" }); } catch (e) { list.scrollTop = 0; }
+  }
+
+  function drawQ() {
+    if (Q.data && Q.data.feedback) drawMeter(Q.data.feedback);
+    var d = Q.data || { questions: [], waiting: 0, released: false };
+    var qs = d.questions || [];
+    var now = qs.filter(function (q) { return q.when !== "end"; }).sort(function (a, b) { return b.at - a.at; });   // newest first
+    var end = qs.filter(function (q) { return q.when === "end"; }).sort(function (a, b) { return a.at - b.at; });   // in the order asked
+    var endCount = d.released ? end.length : (d.waiting || 0);
+
+    var ok = Q.loaded && !Q.failed;
+    $("live").className = "live" + (ok ? "" : " off");
+    $("liveText").textContent = ok ? "live" : !Q.loaded ? (Q.failed ? "Offline" : "Connecting") : "Reconnecting";
+    $("nNow").textContent = String(now.length);
+    $("nEnd").textContent = String(endCount);
+    $("endSub").textContent = Q.busy ? "Showing…" : Q.open ? (d.released ? "Shown to everyone · push to close" : "Push to close")
+                                                         : (d.released ? "Shown to everyone · push to open" : "Held · push to show");
+
+    var first = !Q.hadData, burst = 0, nowMs = Date.now();
+    function item(q) {
+      var t0 = Q.firstSeen[q.id];
+      if (t0 === undefined) { t0 = first ? 0 : nowMs + Math.min(burst++ * 70, 1400); if (Q.loaded) Q.firstSeen[q.id] = t0; }
+      var age = nowMs - t0, fresh = t0 > 0 && age < 2400;
+      return h("li", { class: "q" + (q.answered ? " answered" : "") + (fresh ? " fresh" : ""), style: fresh ? "--d:" + (-age) + "ms" : null },
+        h("span", { class: "av", "aria-hidden": "true", text: q.emoji || "🙂" }),
+        h("div", { class: "main" },
+          h("p", { class: "meta" },
+            h("span", { class: "who", text: q.alias || "A guest" }),
+            h("span", { class: "time", text: q.time || "" }),
+            q.answered ? h("span", { class: "chip", text: "Answered" }) : null),
+          h("div", { class: "bubble", text: q.question })));
+    }
+    function fill(list, rows, emptyText) {
+      var items = rows.map(item);
+      if (!items.length) items = [h("li", { class: "empty", text: emptyText })];
+      list.replaceChildren.apply(list, items);
+    }
+    var waitText = !CONFIG.API_URL ? "Questions aren't connected. Paste the questions sheet link into API_URL."
+      : !Q.loaded ? (Q.failed ? "Couldn't reach the questions sheet. The page keeps trying." : "Loading questions…") : null;
+    // A new during-the-talk question scrolls the list back to the top, where the newest sits.
+    var newNow = Q.loaded && !first && now.some(function (q) { return Q.firstSeen[q.id] === undefined; });
+    fill($("nowList"), now, waitText || "No questions yet. They appear here as the audience sends them.");
+    if (newNow) scrollToNewest($("nowList"));
+    // The end-of-talk questions appear only once they are shown to everyone.
+    fill($("endList"), d.released ? end : [], waitText || (d.released ? "No questions were saved for the end." : "Showing the end-of-talk questions…"));
+    if (Q.loaded) Q.hadData = true;
+  }
+
+  // Push the amber tab: the drawer slides up over the list, and the end-of-talk
+  // questions are unhidden for everyone. Push again to slide it back down.
+  function setDrawer(open) {
+    Q.open = open;
+    $("drawer").classList.toggle("open", open);
+    $("tab").setAttribute("aria-expanded", open ? "true" : "false");
+    try { $("drawerBody").inert = !open; $("nowLayer").inert = open; } catch (e) {}
+    $("endList").scrollTop = 0;
+    drawQ();
+    if (!open || Q.busy || (Q.data && Q.data.released)) return;
+    Q.busy = true; drawQ();
+    sendQ({ action: "release", show: true }).then(function (d) {
+      if (d.ok) note("");
+      else if (d.error === "no_pin" || d.error === "wrong_pin" || d.error === "bad_request")
+        note("The questions sheet is running an older script. Redeploy it as a New version (Deploy > Manage deployments).", true);
+      else note("Couldn't show them. Close and push the tab again.", true);
+    }).catch(function () {
+      note("Couldn't reach the questions sheet. Close and push the tab again.", true);
+    }).then(function () { Q.busy = false; drawQ(); });
+  }
+  // A tap toggles; a swipe up opens and a swipe down closes.
+  var tabY = null;
+  $("tab").addEventListener("pointerdown", function (ev) { tabY = ev.clientY; });
+  $("tab").addEventListener("pointerup", function (ev) {
+    if (tabY === null) return;
+    var dy = ev.clientY - tabY; tabY = null;
+    setDrawer(dy < -30 ? true : dy > 30 ? false : !Q.open);
+  });
+  $("tab").addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ev.stopPropagation(); setDrawer(!Q.open); }
+  });
+
+  function refreshQ() {
+    if (!CONFIG.API_URL || Q.busy) return;
+    loadQ().catch(function () { Q.failed = true; }).then(drawQ);
+  }
+
+  /* =====================================================================
+     START
+     ===================================================================== */
+  setDrawer(false);
+  refreshQ();
+  setInterval(function () { if (document.visibilityState === "visible") refreshQ(); }, Math.max(3, CONFIG.REFRESH_SECONDS) * 1000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshQ(); });
+
+  // Reopen the same file and slide after a reload (the address keeps #f=...&p=...).
+  var m = /[#&]f=([^&]+)/.exec(location.hash), pg = /[#&]p=(\d+)/.exec(location.hash);
+  if (m) openFromFolder(decodeURIComponent(m[1]), pg ? parseInt(pg[1], 10) : 1);
+  listFolder();
+})();
+</script>
+</body>
+</html>
