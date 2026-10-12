@@ -98,6 +98,8 @@ button { font: inherit; color: inherit; }
 .tl-head h2 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.15; }
 .tl-now { font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .tl-sub { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.tl-earlier { align-self: flex-start; font-family: var(--mono); font-size: 0.75rem; padding: 0.35rem 0.7rem; border: 1px solid var(--line); border-radius: 4px; background: var(--amber-soft); color: var(--ink); cursor: pointer; }
+.tl-earlier:hover { border-color: var(--amber); }
 .tl-plot { position: relative; flex: 1; min-height: 12rem; }
 .tl-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .tl-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 1rem; }
@@ -316,6 +318,7 @@ button { font: inherit; color: inherit; }
         <span class="tl-now" id="tlNow">100%</span>
       </div>
       <p class="tl-sub" id="tlSub">Minute 0 is when the slides were opened</p>
+      <button class="tl-earlier" id="tlEarlier" type="button" hidden></button>
       <div class="tl-plot" id="tlPlot"><svg id="tlSvg" aria-hidden="true"></svg><p class="tl-msg" id="tlMsg" hidden></p></div>
     </div>
   </section>
@@ -589,6 +592,12 @@ button { font: inherit; color: inherit; }
   }
   $("mOpen").addEventListener("click", function () { setTimeline(true); });
   $("strip").addEventListener("click", function () { setTimeline(false); });
+  $("tlEarlier").addEventListener("click", function () {
+    var h = Q.data && Q.data.feedback && Q.data.feedback.history;
+    if (!h || !h.length) return;
+    SES.start = Math.floor(h[0][0] / 60000) * 60000;
+    saveSession(); drawTimeline();
+  });
 
   // The same rule as the bar, evaluated at time t: each person's latest reaction
   // in the window before t, plus the cushion of imaginary agrees.
@@ -610,9 +619,17 @@ button { font: inherit; color: inherit; }
     if (!start) { svg.innerHTML = ""; msg.hidden = false; msg.textContent = "The timeline starts when the slides are opened. Go back to the slides and choose a presentation."; return; }
     if (fb && !fb.history) { svg.innerHTML = ""; msg.hidden = false; msg.textContent = "The questions script is an older version. Paste the new script into the Google Sheet and redeploy it as a New version to see the timeline."; return; }
     msg.hidden = true;
+    // Reactions from before the slides were opened (a reload on another laptop, or test data):
+    // offer to start the timeline at the first of them instead.
+    var first = hist.length ? hist[0][0] : 0, eb = $("tlEarlier");
+    if (first && first < start - 60000) {
+      var fd = new Date(first);
+      eb.textContent = "Reactions started earlier, at " + ("0" + fd.getHours()).slice(-2) + ":" + ("0" + fd.getMinutes()).slice(-2) + ". Start the timeline there";
+      eb.hidden = false;
+    } else eb.hidden = true;
     var st = new Date(start);
-    $("tlSub").textContent = "Minute 0 = slides opened at " + ("0" + st.getHours()).slice(-2) + ":" + ("0" + st.getMinutes()).slice(-2)
-      + " · each point: people's latest reaction in the " + win + " minutes before";
+    $("tlSub").textContent = "Minute 0 = " + ("0" + st.getHours()).slice(-2) + ":" + ("0" + st.getMinutes()).slice(-2)
+      + " · each point: people's latest reaction · S1, S2, … = slide numbers";
 
     var r = $("tlPlot").getBoundingClientRect(), W = Math.max(200, r.width), H = Math.max(150, r.height);
     var L = 46, R = 58, T = 26, B = 34;
