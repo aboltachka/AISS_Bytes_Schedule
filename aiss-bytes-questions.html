@@ -84,7 +84,7 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 
 .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
 .field textarea { font: inherit; color: inherit; font-size: 1.0625rem; padding: 0.7rem 0.85rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--bg); width: 100%; min-width: 0; min-height: 7rem; resize: vertical; line-height: 1.45; }
-.field textarea:focus-visible, .org input:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
+.field textarea:focus-visible { outline: 3px solid var(--amber); outline-offset: 0; background: var(--surface); }
 .field textarea::placeholder { color: var(--muted); opacity: 0.8; }
 .send-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; }
 .anon { font-size: 0.875rem; color: var(--muted); }
@@ -116,6 +116,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 .part.now { --acc: var(--blue); --acc-ink: #FFFFFF; --acc-soft: var(--tint); --acc-line: var(--blue-line); --glow: 35, 67, 221; }
 .part.end { --acc: var(--amber); --acc-ink: var(--ink); --acc-soft: var(--amber-soft); --acc-line: var(--amber-line); --glow: 240, 162, 2; }
 .part-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
+.part-head .btn { margin-left: auto; font-size: 0.9375rem; padding: 0.45rem 0.85rem; }
 .part-head h3 { font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.2; }
 .tag { font-family: var(--mono); font-size: 0.75rem; padding: 0.1rem 0.55rem; border-radius: 2px; border: 1px solid var(--ink); }
 .tag.now { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
@@ -129,17 +130,19 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 
 .thread { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 1.1rem; }
 .msg { display: flex; gap: 0.7rem; align-items: flex-end; max-width: 46rem; }
-.msg.mine { flex-direction: row-reverse; margin-left: auto; }
+/* The side shows the kind of question: during the talk on the right, end of the talk on the left. */
+.part.now .msg { flex-direction: row-reverse; margin-left: auto; }
 .avatar { flex: none; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; font-size: 1.4rem; line-height: 1; background: var(--surface); border: 1px solid var(--acc-line); border-radius: 8px; font-family: var(--emoji); }
 .msg-main { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; align-items: flex-start; }
-.msg.mine .msg-main { align-items: flex-end; }
+.part.now .msg-main { align-items: flex-end; }
 .meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding-inline: 0.2rem; }
-.msg.mine .meta { justify-content: flex-end; }
+.part.now .meta { justify-content: flex-end; }
 .meta .alias { font-weight: 600; font-size: 0.9375rem; }
 .meta .time { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .meta .chip { font-family: var(--mono); font-size: 0.6875rem; padding: 0 0.4rem; border-radius: 2px; border: 1px solid var(--line); color: var(--muted); }
 .bubble { background: var(--acc-soft); border: 1px solid var(--acc-line); color: var(--ink); border-radius: 16px 16px 16px 3px; padding: 0.7rem 0.95rem; font-size: 1.0625rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
-.msg.mine .bubble { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); border-radius: 16px 16px 3px 16px; }
+.part.now .bubble { border-radius: 16px 16px 3px 16px; }
+.msg.mine .bubble { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
 .msg.held .bubble { background: var(--acc-soft); border: 1.5px dashed var(--acc); color: var(--ink); }
 .msg.answered .bubble { opacity: 0.55; }
 .held-note { font-size: 0.8125rem; color: var(--muted); padding-inline: 0.2rem; }
@@ -147,16 +150,9 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 .link:hover { color: var(--ink); }
 .link.danger { color: var(--err); font-weight: 600; }
 
-/* ---- footer and organizer panel ---- */
+/* ---- footer ---- */
 .foot { padding-top: 0.75rem; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.9rem; }
 .foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem; }
-.org summary { cursor: pointer; font-family: var(--mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
-.org-body { margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.7rem; max-width: 30rem; }
-.org-body p { font-size: 0.875rem; color: var(--muted); }
-.org input { font: inherit; padding: 0.5rem 0.7rem; border: 2px solid var(--ink); border-radius: 2px; background: var(--surface); width: 12rem; max-width: 100%; }
-.org-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-#orgFlash { font-size: 0.875rem; min-height: 1.3em; }
-#orgFlash.err { color: var(--err); }
 
 @media (max-width: 600px) {
   .opts { grid-template-columns: minmax(0, 1fr); }
@@ -166,7 +162,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
   .btn { transition: background-color 120ms ease, border-color 120ms ease; }
   .opt { transition: background-color 150ms ease, color 150ms ease; }
   .mark .ch.pop { animation: pop 240ms cubic-bezier(0.2, 0.9, 0.3, 1.4); }
-  .msg.fresh .bubble { animation: fresh 2.4s ease-out; }
+  .msg.fresh .bubble { animation: fresh 2.4s ease-out backwards; animation-delay: var(--d, 0ms); }
   .msg.fresh { animation: pop-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards; animation-delay: var(--d, 0ms); }
   .live:not(.off) .dot { animation: blink 2s ease-in-out infinite; }
   .ask.shake { animation: shake 380ms ease; }
@@ -226,7 +222,9 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     </div>
 
     <div class="part end" aria-labelledby="endTitle">
-      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span></div>
+      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span>
+        <button id="toggleEnd" class="btn end" type="button" hidden>Unhide end-of-talk questions</button></div>
+      <p id="endFlash" class="quiet-note" role="status" aria-live="polite" hidden></p>
       <div id="waiting" class="waiting" hidden><span id="waitN" class="n">0</span><p id="waitText"></p></div>
       <p id="endEmpty" class="quiet-note" hidden></p>
       <ol id="endList" class="thread"></ol>
@@ -235,18 +233,6 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 
   <footer class="foot">
     <p class="foot-row label"><span id="today"></span><span id="contact"></span></p>
-    <details id="org" class="org">
-      <summary>Organizer</summary>
-      <form id="orgForm" class="org-body" novalidate>
-        <p>Show the end-of-talk questions to everyone when the speaker finishes. This needs the organizer PIN set in the script.</p>
-        <input id="pin" type="password" autocomplete="off" placeholder="Organizer PIN" aria-label="Organizer PIN">
-        <div class="org-actions">
-          <button class="btn end" type="submit" data-show="1">Show end-of-talk questions</button>
-          <button class="btn quiet" type="submit" data-show="0">Hide them again</button>
-        </div>
-        <p id="orgFlash" role="status" aria-live="polite"></p>
-      </form>
-    </details>
   </footer>
 </main>
 
@@ -254,7 +240,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 (function () {
   "use strict";
   var MAX = 500;
-  var S = { data: null, loaded: false, failed: false, busy: false, seen: null, armed: null, armTimer: 0 };
+  var S = { data: null, loaded: false, failed: false, busy: false, hadData: false, firstSeen: null, armed: null, armTimer: 0, endArmed: false, endTimer: 0 };
   var $ = function (id) { return document.getElementById(id); };
 
   function h(tag, attrs) {
@@ -288,9 +274,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     question_required: "Type a question first.",
     too_fast: "Wait a few seconds before sending another question.",
     busy: "Lots of questions at once. Try again in a few seconds.",
-    not_found: "That question was already removed.",
-    wrong_pin: "That PIN is not right.",
-    no_pin: "No organizer PIN is set in the script yet. Release from the Settings tab instead."
+    not_found: "That question was already removed."
   };
 
   /* ---- talking to the Google Sheet ---- */
@@ -312,18 +296,22 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     var qs = d.questions || [];
     var now = qs.filter(function (q) { return q.when !== "end"; }).sort(function (a, b) { return b.at - a.at; });   // live feed: newest first
     var end = qs.filter(function (q) { return q.when === "end"; }).sort(function (a, b) { return a.at - b.at; });   // in the order asked
-    var first = S.seen === null, seen = S.seen || {}, burst = 0;
+    // A question that arrives after the page loaded glows briefly. The time it first appeared is kept,
+    // so the glow carries on smoothly when the list is redrawn by the next refresh.
+    var first = !S.hadData, burst = 0, nowMs = Date.now();
+    S.firstSeen = S.firstSeen || {};
 
     function bubble(q) {
-      var fresh = !first && !seen[q.id];
-      seen[q.id] = true;
+      var t0 = S.firstSeen[q.id];
+      if (t0 === undefined) { t0 = first ? 0 : nowMs + Math.min(burst++ * 70, 1400); if (S.loaded) S.firstSeen[q.id] = t0; }
+      var age = nowMs - t0, fresh = t0 > 0 && age < 2400;
       var del = null;
       if (q.mine) {
         var armed = S.armed === q.id;
         del = h("button", { class: "link" + (armed ? " danger" : ""), type: "button", text: armed ? "Confirm delete" : "Delete", onclick: function () { remove(q.id); } });
       }
       return h("li", { class: "msg" + (q.mine ? " mine" : "") + (q.held ? " held" : "") + (q.answered ? " answered" : "") + (fresh ? " fresh" : ""),
-                       style: fresh ? "--d:" + Math.min(burst++ * 70, 1400) + "ms" : null },
+                       style: fresh ? "--d:" + (-age) + "ms" : null },
         h("span", { class: "avatar", "aria-hidden": "true", text: q.emoji || "🙂" }),
         h("div", { class: "msg-main" },
           h("p", { class: "meta" },
@@ -339,7 +327,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     var nowList = $("nowList"), endList = $("endList");
     nowList.replaceChildren.apply(nowList, now.map(bubble));
     endList.replaceChildren.apply(endList, end.map(bubble));
-    if (S.loaded) S.seen = seen;
+    if (S.loaded) S.hadData = true;
 
     // During the talk: empty and error states.
     var nowEmpty = $("nowEmpty");
@@ -358,6 +346,12 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     var endEmpty = $("endEmpty");
     endEmpty.hidden = !S.loaded || waiting > 0 || end.length > 0;
     endEmpty.textContent = d.released ? "No questions were saved for the end." : "Questions marked “At the end” wait here and appear all together when the speaker finishes.";
+    var tb = $("toggleEnd");
+    tb.hidden = !S.loaded;
+    tb.disabled = S.busy;
+    tb.className = "btn " + (d.released ? "quiet" : "end");
+    tb.textContent = S.endArmed ? (d.released ? "Confirm: hide for everyone" : "Confirm: unhide for everyone")
+                                : (d.released ? "Hide end-of-talk questions" : "Unhide end-of-talk questions");
     var tag = $("endTag");
     tag.className = "tag " + (d.released ? "end" : "wait");
     tag.textContent = d.released ? "Released" : "Held until the end";
@@ -436,22 +430,19 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     }).then(function () { S.busy = false; draw(); });
   }
 
-  /* ---- organizer: release the end-of-talk questions ---- */
-  var orgShow = true;
-  [].forEach.call(document.querySelectorAll("#orgForm button"), function (b) {
-    b.addEventListener("click", function () { orgShow = b.getAttribute("data-show") === "1"; });
-  });
-  $("orgForm").addEventListener("submit", function (ev) {
-    ev.preventDefault();
-    var f = $("orgFlash"), pin = $("pin").value.trim();
-    if (!pin) { f.textContent = "Type the organizer PIN first."; f.className = "err"; return; }
+  /* ---- hide or unhide the end-of-talk questions for everyone (two clicks, so a stray tap does nothing) ---- */
+  function endNote(msg) { $("endFlash").textContent = msg || ""; $("endFlash").hidden = !msg; }
+  $("toggleEnd").addEventListener("click", function () {
+    var released = !!(S.data && S.data.released);
+    clearTimeout(S.endTimer);
+    if (!S.endArmed) { S.endArmed = true; S.endTimer = setTimeout(function () { S.endArmed = false; draw(); }, 5000); draw(); return; }
+    S.endArmed = false;
     if (S.busy) return;
-    S.busy = true; f.textContent = "Working…"; f.className = "";
-    send({ action: "release", pin: pin, show: orgShow }).then(function (d) {
-      if (d.ok) { f.textContent = orgShow ? "End-of-talk questions are now shown to everyone." : "End-of-talk questions are hidden again."; f.className = ""; }
-      else { f.textContent = ERRORS[d.error] || "Couldn't change it. Try again."; f.className = "err"; }
+    S.busy = true; endNote(""); draw();
+    send({ action: "release", show: !released }).then(function (d) {
+      endNote(d.ok ? "" : "Couldn't change it. Try again.");
     }).catch(function () {
-      f.textContent = "Couldn't reach the questions sheet. Try again."; f.className = "err";
+      endNote("Couldn't reach the questions sheet. Try again.");
     }).then(function () { S.busy = false; draw(); });
   });
 
