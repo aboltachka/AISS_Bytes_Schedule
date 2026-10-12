@@ -147,7 +147,6 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
 .part.now { --acc: var(--blue); --acc-ink: #FFFFFF; --acc-soft: var(--tint); --acc-line: var(--blue-line); --glow: 35, 67, 221; }
 .part.end { --acc: var(--amber); --acc-ink: var(--ink); --acc-soft: var(--amber-soft); --acc-line: var(--amber-line); --glow: 240, 162, 2; }
 .part-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
-.part-head .btn { margin-left: auto; font-size: 0.9375rem; padding: 0.45rem 0.85rem; }
 .part-head h3 { font-family: var(--display); font-weight: 700; font-size: 1.375rem; line-height: 1.2; }
 .tag { font-family: var(--mono); font-size: 0.75rem; padding: 0.1rem 0.55rem; border-radius: 2px; border: 1px solid var(--ink); }
 .tag.now { background: var(--blue); border-color: var(--blue); color: #FFFFFF; }
@@ -270,9 +269,7 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     </div>
 
     <div class="part end" aria-labelledby="endTitle">
-      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span>
-        <button id="toggleEnd" class="btn end" type="button" hidden>Unhide end-of-talk questions</button></div>
-      <p id="endFlash" class="quiet-note" role="status" aria-live="polite" hidden></p>
+      <div class="part-head"><h3 id="endTitle">At the end of the talk</h3><span id="endTag" class="tag wait">Held until the end</span></div>
       <div id="waiting" class="waiting" hidden><span id="waitN" class="n">0</span><p id="waitText"></p></div>
       <p id="endEmpty" class="quiet-note" hidden></p>
       <ol id="endList" class="thread"></ol>
@@ -396,11 +393,6 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
     var endEmpty = $("endEmpty");
     endEmpty.hidden = !S.loaded || waiting > 0 || end.length > 0;
     endEmpty.textContent = d.released ? "No questions were saved for the end." : "Questions marked “At the end” wait here and appear all together when the speaker finishes.";
-    var tb = $("toggleEnd");
-    tb.hidden = !S.loaded;
-    tb.disabled = S.busy;
-    tb.className = "btn " + (d.released ? "quiet" : "end");
-    tb.textContent = d.released ? "Hide end-of-talk questions" : "Unhide end-of-talk questions";
     var tag = $("endTag");
     tag.className = "tag " + (d.released ? "end" : "wait");
     tag.textContent = d.released ? "Released" : "Held until the end";
@@ -484,23 +476,6 @@ h2.title { font-family: var(--display); font-weight: 800; font-size: clamp(1.75r
       flash("Couldn't reach the questions sheet. Check your connection and try again.", "err");
     }).then(function () { S.busy = false; S.deleting = null; draw(); });
   }
-
-  /* ---- hide or unhide the end-of-talk questions for everyone ---- */
-  function endNote(msg) { $("endFlash").textContent = msg || ""; $("endFlash").hidden = !msg; }
-  $("toggleEnd").addEventListener("click", function () {
-    var released = !!(S.data && S.data.released);
-    if (S.busy) return;
-    S.busy = true; endNote(""); draw();
-    send({ action: "release", show: !released }).then(function (d) {
-      // An older script (with the PIN, or without this button) answers with one of these codes.
-      var outdated = d.error === "no_pin" || d.error === "wrong_pin" || d.error === "bad_request";
-      endNote(d.ok ? "" : outdated
-        ? "The questions sheet is still running the previous version of its script. Redeploy it as a New version (Deploy > Manage deployments)."
-        : (ERRORS[d.error] || "Couldn't change it. Try again."));
-    }).catch(function () {
-      endNote("Couldn't reach the questions sheet. Try again.");
-    }).then(function () { S.busy = false; draw(); });
-  });
 
   /* ---- reactions: agree / disagree, one per person per minute ---- */
   var V = { until: 0, busy: false, chosen: null, msg: "", err: false, timer: 0 };
